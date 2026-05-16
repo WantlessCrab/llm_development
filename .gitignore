@@ -55,3 +55,8 @@ tts_models/
 *.tar
 *.tar.gz
 *.zip
+
+# Local backup artifacts
+.gitignore.backup.*
+*.backup.*
+*.bak
