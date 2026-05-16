@@ -1,0 +1,135 @@
+# dockerfile.vllm_rocm
+# ----------------------------------------------------------------------
+# 1. BASE IMAGE
+# ----------------------------------------------------------------------
+# Uses the already-proven local ROCm/Python 3.12 base.
+#
+# Known base contract when run with the compose GPU device contract:
+#   - Python 3.12.3
+#   - torch 2.6.0+rocm7.1.0
+#   - RX 7900 XTX visible as gfx1100
+#   - ROCm tensor execution working
+#
+# Build-time checks below verify software integrity only.
+# Runtime GPU visibility is validated by entrypoint/smoke scripts.
+FROM localproject/py312base:latest
+
+SHELL ["/bin/bash", "-lc"]
+
+# ----------------------------------------------------------------------
+# 2. RUNTIME ENVIRONMENT
+# ----------------------------------------------------------------------
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTORCH_ROCM_ARCH=gfx1100
+ENV HF_HOME=/workspace/hf_cache
+ENV HUGGINGFACE_HUB_CACHE=/workspace/hf_cache/hub
+ENV TRANSFORMERS_CACHE=/workspace/hf_cache/transformers
+ENV VLLM_CACHE_ROOT=/workspace/vllm_cache
+ENV VLLM_USAGE_STATS_COLLECTION=0
+ENV TOKENIZERS_PARALLELISM=false
+
+WORKDIR /app
+
+# ----------------------------------------------------------------------
+# 3. SYSTEM DEPENDENCIES
+# ----------------------------------------------------------------------
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    pkg-config \
+    git \
+    git-lfs \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# ----------------------------------------------------------------------
+# 4. VERIFY PROVEN ROCm BASE BEFORE INSTALLING vLLM
+# Build-time software check only. Runtime GPU visibility is tested later.
+# ----------------------------------------------------------------------
+RUN python3 - <<'PY'
+import torch
+
+print("Torch before vLLM install:", torch.__version__)
+print("HIP before vLLM install:", getattr(torch.version, "hip", None))
+
+assert getattr(torch.version, "hip", None), "ROCm-enabled PyTorch is not present."
+assert "rocm" in torch.__version__.lower(), "Torch build is not ROCm-tagged."
+PY
+
+RUN (pip3 list | grep -Ei 'nvidia|cuda' && echo "ERROR: NVIDIA/CUDA packages found before vLLM install" && exit 1 || echo "✓ No NVIDIA/CUDA contamination before vLLM install")
+
+# ----------------------------------------------------------------------
+# 5. PYTHON RUNTIME TOOLS
+# ----------------------------------------------------------------------
+COPY requirements.vllm_rocm.txt /app/requirements.vllm_rocm.txt
+RUN pip3 install --no-cache-dir -r /app/requirements.vllm_rocm.txt
+
+# ----------------------------------------------------------------------
+# 6. vLLM INSTALL — EXPERIMENTAL COMPATIBILITY LAYER
+# ----------------------------------------------------------------------
+# IMPORTANT:
+# The base image is ROCm/PyTorch 7.1-era.
+# vLLM prebuilt ROCm wheels are currently published for rocm700 and rocm721.
+# The chosen variant must be validated by the post-install and runtime checks.
+#
+# The vLLM rocm721 wheel may install or require an amdsmi binding that targets
+# a newer libamd_smi ABI. The active container library is /opt/rocm/lib/libamd_smi.so
+# from the base image. After vLLM install, install the ROCm-shipped Python
+# amdsmi binding from /opt/rocm/share/amd_smi so Python amdsmi matches the
+# container's libamd_smi.so.
+ARG VLLM_INSTALL_SPEC="vllm"
+ARG VLLM_ROCM_VARIANT="rocm721"
+
+RUN export VLLM_EXTRA_INDEX_URL="https://wheels.vllm.ai/rocm/nightly/${VLLM_ROCM_VARIANT}" && \
+    echo "Installing ${VLLM_INSTALL_SPEC}" && \
+    echo "Using vLLM ROCm wheel variant: ${VLLM_ROCM_VARIANT}" && \
+    echo "Using vLLM wheel index: ${VLLM_EXTRA_INDEX_URL}" && \
+    echo "Active python3: $(command -v python3)" && \
+    python3 -c 'import sys; print("install target executable:", sys.executable); print("install target version:", sys.version)' && \
+    UV_BREAK_SYSTEM_PACKAGES=true uv pip install --python "$(command -v python3)" --break-system-packages --pre "${VLLM_INSTALL_SPEC}" \
+      --extra-index-url "${VLLM_EXTRA_INDEX_URL}" \
+      --index-strategy unsafe-best-match && \
+    python3 -m pip show vllm && \
+    if [ -d /opt/rocm/share/amd_smi ]; then \
+      echo "Installing ROCm-shipped amdsmi from /opt/rocm/share/amd_smi to match container libamd_smi.so" && \
+      python3 -m pip install --break-system-packages /opt/rocm/share/amd_smi && \
+      python3 -m pip show amdsmi ; \
+    else \
+      echo "ERROR: /opt/rocm/share/amd_smi not found; cannot install ROCm-matched amdsmi" && \
+      exit 1 ; \
+    fi
+
+# ----------------------------------------------------------------------
+# 7. POST-INSTALL VALIDATION
+# Build-time software check only. Runtime GPU visibility/platform selection is tested later.
+# ----------------------------------------------------------------------
+RUN python3 - <<'PY'
+import importlib.metadata as md
+import importlib.util
+import torch
+
+print("Torch after vLLM install:", torch.__version__)
+print("HIP after vLLM install:", getattr(torch.version, "hip", None))
+print("amdsmi package version:", md.version("amdsmi"))
+print("amdsmi import spec:", importlib.util.find_spec("amdsmi"))
+
+assert getattr(torch.version, "hip", None), "ROCm-enabled PyTorch was overwritten."
+assert "rocm" in torch.__version__.lower() or getattr(torch.version, "hip", None), "Torch build is no longer ROCm/HIP-enabled."
+
+import vllm
+print("vLLM:", vllm.__version__)
+print("uv:", md.version("uv"))
+PY
+
+RUN (pip3 list | grep -Ei 'nvidia|cuda' && echo "ERROR: NVIDIA/CUDA packages found after vLLM install" && exit 1 || echo "✓ No NVIDIA/CUDA contamination after vLLM install")
+
+# ----------------------------------------------------------------------
+# 8. SERVICE FILES
+# ----------------------------------------------------------------------
+COPY scripts/ /app/scripts/
+RUN chmod +x /app/scripts/*.sh
+
+EXPOSE 8000
+
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]

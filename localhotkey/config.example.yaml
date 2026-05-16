@@ -1,0 +1,76 @@
+version: 1
+
+backend:
+  paste_key: "ctrl+v"
+  restore_clipboard: true
+  restore_delay_ms: 250
+  clipboard_settle_ms: 60
+
+bindings:
+  - hotkey: "ctrl + shift + 1"
+    action: "wrap_fenced_text"
+
+  - hotkey: "ctrl + shift + 2"
+    action: "wrap_inline_code"
+
+  - hotkey: "ctrl + shift + 3"
+    action: "wrap_double_quotes"
+
+  - hotkey: "ctrl + shift + 4"
+    action: "wrap_xml_context"
+
+  - hotkey: "ctrl + shift + 5"
+    action: "wrap_markdown_quote"
+
+actions:
+  wrap_fenced_text:
+    type: "wrap"
+    wrapper: "fenced_text"
+
+  wrap_inline_code:
+    type: "wrap"
+    wrapper: "inline_code"
+
+  wrap_double_quotes:
+    type: "wrap"
+    wrapper: "double_quotes"
+
+  wrap_xml_context:
+    type: "wrap"
+    wrapper: "xml_context"
+
+  wrap_markdown_quote:
+    type: "wrap"
+    wrapper: "markdown_quote"
+
+wrappers:
+  fenced_text:
+    label: "Markdown fenced text block"
+    before: "```text\n"
+    after: "\n```"
+    transform: "none"
+
+  inline_code:
+    label: "Markdown inline code"
+    before: "`"
+    after: "`"
+    transform: "none"
+
+  double_quotes:
+    label: "Double quotes"
+    before: "\""
+    after: "\""
+    transform: "none"
+
+  xml_context:
+    label: "XML context block"
+    before: "<context>\n"
+    after: "\n</context>"
+    transform: "none"
+
+  markdown_quote:
+    label: "Markdown quote block"
+    before: ""
+    after: ""
+    transform: "none"
+    line_prefix: "> "

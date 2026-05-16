@@ -1,0 +1,191 @@
+manifest_version: 1
+
+runtime:
+  runtime_id: qwen36_35b_q4_llamacpp
+  runtime_kind: chat_completion
+  engine: llama.cpp
+  engine_family: llamacpp_rocm
+  compute_backend: ROCm/HIP
+  service_name: llamacpp-rocm-qwen36-35b-q4
+  container_name: llamacpp-rocm-qwen36-35b-q4
+  image_name: localproject/llamacpp-rocm-qwen36-35b-q4:latest
+
+network:
+  bind_host: 127.0.0.1
+  host_port: 8023
+  container_host: 0.0.0.0
+  container_port: 8000
+  api_base_url: http://127.0.0.1:8023/v1
+  health_url: http://127.0.0.1:8023/health
+  models_url: http://127.0.0.1:8023/v1/models
+  chat_completions_url: http://127.0.0.1:8023/v1/chat/completions
+
+served_model:
+  served_model_name: local-qwen36-35b-q4-llamacpp
+  local_llm_model_profile: local_qwen36_35b_q4_llamacpp
+  local_llm_workflow: qwen36_35b_q4_llamacpp_rag_answer
+
+container_files:
+  compose_file: docker-compose.llamacpp_rocm.yml
+  dockerfile: dockerfile.llamacpp_rocm
+  dockerignore: .dockerignore
+  env_example: .env.example
+  entrypoint: scripts/entrypoint.sh
+  device_inspection: scripts/inspect_devices.sh
+  model_inspection: scripts/inspect_model_files.sh
+  openai_api_smoke: scripts/smoke_openai_api.sh
+  local_llm_registration: config/local_llm_registration.yaml
+  model_readme: models/README.md
+  root_readme: README.md
+
+build_source:
+  base_image: rocm/dev-ubuntu-24.04:7.1.1-complete
+  llama_cpp_repo: https://github.com/ggml-org/llama.cpp.git
+  llama_cpp_ref: cfff1fc3003239cfe00aca031345107687d30d7b
+  build_backend: HIP/ROCm
+  amdgpu_targets: gfx1100
+  cmake_build_type: Release
+  llama_curl: "ON"
+  build_targets:
+    - llama-server
+    - llama-cli
+    - llama-bench
+
+model_asset:
+  source_family: Unsloth GGUF
+  model_family: Qwen3.6-35B-A3B
+  expected_filename: Qwen3.6-35B-A3B-UD-Q4_K_S.gguf
+  expected_format: GGUF
+  first_quant_target: UD-Q4_K_S
+  host_model_dir: ./models
+  host_model_path: ./models/Qwen3.6-35B-A3B-UD-Q4_K_S.gguf
+  container_model_dir: /workspace/models
+  container_model_path: /workspace/models/Qwen3.6-35B-A3B-UD-Q4_K_S.gguf
+  checksum_manifest: ./models/MANIFEST.sha256
+  checksum_policy: "models/MANIFEST.sha256 is authoritative when present. Do not record or claim a checksum until generated from the placed local file."
+
+hardware_policy:
+  expected_host: wantless-Z890-GAMING-X-WIFI7
+  expected_gpu: Radeon RX 7900 XTX
+  expected_gpu_arch: gfx1100
+  vram_class: 24GB
+  host_has_parallel_intel_gpu: true
+  required_device_nodes:
+    - /dev/kfd
+    - /dev/dri/renderD129
+  intentionally_unmounted_device_nodes:
+    - /dev/dri/renderD128
+  compose_groups:
+    - video
+    - render
+  compose_cap_add:
+    - SYS_PTRACE
+  compose_security_opt:
+    - seccomp:unconfined
+  compose_ipc: host
+  compose_shm_size: 16g
+  rocm_visibility:
+    ROCR_VISIBLE_DEVICES: "0"
+    HIP_VISIBLE_DEVICES: "0"
+
+first_boot_runtime_limits:
+  ctx_size: 4096
+  n_gpu_layers: auto
+  cpu_moe: false
+  n_cpu_moe: 0
+  cache_type_k: q4_0
+  cache_type_v: q4_0
+  flash_attn: auto
+  batch_size: 512
+  ubatch_size: 256
+  threads: 8
+  threads_batch: 16
+  parallel: 1
+
+llama_server_flag_contract:
+  required:
+    - --model
+    - --alias
+    - --host
+    - --port
+    - --device
+    - --ctx-size
+    - --n-gpu-layers
+    - --cache-type-k
+    - --cache-type-v
+    - --batch-size
+    - --ubatch-size
+    - --threads
+    - --threads-batch
+    - --parallel
+    - --cpu-moe
+    - --n-cpu-moe
+    - --flash-attn
+  optional_not_enabled_at_first_boot:
+    - --fit
+    - --fit-target
+    - --fit-ctx
+
+local_llm_contract:
+  config_path: ~/.config/local-llm/config.yaml
+  provider: openai_compatible
+  model_profile: local_qwen36_35b_q4_llamacpp
+  workflow_id: qwen36_35b_q4_llamacpp_rag_answer
+  base_url: http://127.0.0.1:8023/v1
+  api_key: not-needed
+  model: local-qwen36-35b-q4-llamacpp
+  context_window: 4096
+  defaults:
+    temperature: 0.2
+    max_tokens: 384
+  workflow:
+    kind: rag_answer
+    model_profile: local_qwen36_35b_q4_llamacpp
+    rag_profile: project_basic
+    prompt_profile: source_grounded_answer
+  provider_health_requirement: "/v1/models must include local-qwen36-35b-q4-llamacpp before local_llm UI proof."
+
+validation_commands:
+  host_model_inspection:
+    working_directory: /home/wantless/PycharmProjects/automation/model_runtimes/llamacpp_rocm_qwen36_35b_q4
+    command: ./scripts/inspect_model_files.sh
+  build_image:
+    working_directory: /home/wantless/PycharmProjects/automation/model_runtimes/llamacpp_rocm_qwen36_35b_q4
+    command: docker compose -f docker-compose.llamacpp_rocm.yml --env-file .env build
+  container_device_inspection:
+    working_directory: /home/wantless/PycharmProjects/automation/model_runtimes/llamacpp_rocm_qwen36_35b_q4
+    command: docker compose -f docker-compose.llamacpp_rocm.yml --env-file .env run --rm --entrypoint /app/scripts/inspect_devices.sh llamacpp-rocm-qwen36-35b-q4
+  start_runtime:
+    working_directory: /home/wantless/PycharmProjects/automation/model_runtimes/llamacpp_rocm_qwen36_35b_q4
+    command: docker compose -f docker-compose.llamacpp_rocm.yml --env-file .env up
+  openai_api_smoke:
+    working_directory: /home/wantless/PycharmProjects/automation/model_runtimes/llamacpp_rocm_qwen36_35b_q4
+    command: ./scripts/smoke_openai_api.sh
+  local_llm_doctor:
+    command: local-llm doctor
+
+validation_status:
+  model_file_present: unknown
+  checksum_manifest_present: unknown
+  image_build_completed: false
+  container_device_inspection_passed: false
+  runtime_started: false
+  health_endpoint_passed: false
+  models_endpoint_alias_passed: false
+  chat_completion_passed: false
+  local_llm_registration_applied: false
+  local_llm_doctor_passed: false
+  local_llm_ui_chat_passed: false
+
+promotion_policy:
+  restart_policy: "Do not add restart: unless-stopped until endpoint proof passes."
+  first_boot_scope: "Build, launch, inspect, and perform one full functionality chat test."
+  deferred_runtime_changes:
+    - "Do not increase context size before first endpoint and UI proof."
+    - "Do not enable fit controls before binary support and memory behavior are proven."
+    - "Do not set nonzero n_cpu_moe before baseline VRAM behavior is observed."
+    - "Do not add throughput tuning variables before device/runtime proof."
+
+notes:
+  - "This manifest records the intended runtime contract and validation state."
+  - "It does not claim the model file, endpoint, local_llm registration, or UI workflow has passed until validation_status is updated from observed results."

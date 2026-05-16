@@ -1,0 +1,1 @@
+# Using retrieved project sources, explain how local_llm chooses and calls the configured model provider.

@@ -1,0 +1,25 @@
+[project]
+name = "local-llm"
+version = "0.2.0"
+description = "Standalone local LLM backend with SQLite FTS RAG, source provenance, run records, and artifacts"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "pyyaml>=6.0",
+    "httpx>=0.26.0",
+]
+
+[project.scripts]
+local-llm = "local_llm.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+
+[tool.setuptools.package-data]
+local_llm = ["web/*.html"]

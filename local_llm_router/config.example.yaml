@@ -1,0 +1,120 @@
+version: 1
+
+server:
+  host: "127.0.0.1"
+  port: 8015
+  cors_origins:
+    - "https://chatgpt.com"
+
+storage:
+  database_path: "~/.local/share/local-llm-router/router.sqlite"
+  audit_dir: "~/.local/share/local-llm-router/audit"
+
+providers:
+  local_draft:
+    provider_id: "local_draft"
+    provider_type: "local_draft"
+    label: "Local draft inbox"
+    enabled: true
+    availability: "ready"
+    capabilities:
+      can_capture: false
+      can_receive: true
+      can_insert_draft: false
+      can_manual_send: false
+      can_dispatch_request: false
+      can_return_response: false
+      supports_browser_session: false
+      supports_http_session: false
+      supports_streaming: false
+      supports_queue_groups: true
+      supports_manual_review: true
+    config: { }
+
+  chatgpt_browser:
+    provider_id: "chatgpt_browser"
+    provider_type: "browser_llm"
+    label: "ChatGPT browser"
+    enabled: true
+    availability: "ready"
+    capabilities:
+      can_capture: true
+      can_receive: true
+      can_insert_draft: true
+      can_manual_send: false
+      can_dispatch_request: false
+      can_return_response: true
+      supports_browser_session: true
+      supports_http_session: false
+      supports_streaming: false
+      supports_queue_groups: true
+      supports_manual_review: true
+    config:
+      host_pattern: "https://chatgpt.com/*"
+      extension_provider_key: "chatgpt"
+
+  local_llm_primary:
+    provider_id: "local_llm_primary"
+    provider_type: "local_llm_http"
+    label: "Local LLM primary"
+    enabled: true
+    availability: "needs_configuration"
+    capabilities:
+      can_capture: true
+      can_receive: true
+      can_insert_draft: false
+      can_manual_send: true
+      can_dispatch_request: true
+      can_return_response: true
+      supports_browser_session: false
+      supports_http_session: true
+      supports_streaming: false
+      supports_queue_groups: true
+      supports_manual_review: true
+    config:
+      base_url: null
+      health_endpoint: null
+      chat_endpoint: null
+      method: "POST"
+      request_format: null
+      response_format: null
+      response_text_path: null
+      model: null
+      timeout_seconds: 120
+      stream: false
+      system_prompt: null
+
+targets:
+  local_draft:
+    default:
+      label: "Local Draft Inbox"
+
+wrappers:
+  source_attribution_default:
+    label: "Source attribution wrapper"
+    before: |
+      --- Incoming Transmission ---
+      provider: {provider}
+      conversation_id: {conversation_id}
+      gizmo_id: {gizmo_id}
+      role: {role}
+      captured_at: {captured_at}
+      source_url: {conversation_url}
+      --- start content ---
+
+    after: |
+
+      --- end content ---
+
+routes:
+  - route_id: "chatgpt_to_local_draft"
+    name: "ChatGPT latest assistant to local draft"
+    enabled: true
+    mode: "manual_draft_bridge"
+    source:
+      provider: "chatgpt"
+      role: "assistant"
+    target:
+      type: "local_draft"
+      id: "default"
+    wrapper: "source_attribution_default"

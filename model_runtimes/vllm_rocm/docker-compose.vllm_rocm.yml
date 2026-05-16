@@ -1,0 +1,75 @@
+# docker-compose.vllm_rocm.yml
+
+x-gpu-service-config: &gpu-service-config
+  devices:
+    - /dev/kfd
+    - /dev/dri/renderD129
+  group_add:
+    - video
+    - render
+  cap_add:
+    - SYS_PTRACE
+  security_opt:
+    - seccomp:unconfined
+  ipc: host
+  shm_size: 8g
+  environment:
+    - ROCR_VISIBLE_DEVICES=0
+    - HIP_VISIBLE_DEVICES=0
+    - PYTHONUNBUFFERED=1
+    - PYTORCH_ROCM_ARCH=gfx1100
+
+services:
+  vllm-rocm:
+    build:
+      context: .
+      dockerfile: dockerfile.vllm_rocm
+      args:
+        VLLM_INSTALL_SPEC: ${VLLM_INSTALL_SPEC:-vllm}
+        VLLM_ROCM_VARIANT: ${VLLM_ROCM_VARIANT:-rocm721}
+
+    image: localproject/vllm-rocm:latest
+    container_name: vllm-rocm
+    <<: *gpu-service-config
+
+    ports:
+      - "127.0.0.1:8021:8000"
+
+    volumes:
+      - ./hf_cache:/workspace/hf_cache
+      - ./vllm_cache:/workspace/vllm_cache
+      - ./models:/workspace/models
+
+    environment:
+      - ROCR_VISIBLE_DEVICES=0
+      - HIP_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+      - PYTORCH_ROCM_ARCH=gfx1100
+      - VLLM_TARGET_DEVICE=rocm
+      - HF_HOME=/workspace/hf_cache
+      - HUGGINGFACE_HUB_CACHE=/workspace/hf_cache/hub
+      - TRANSFORMERS_CACHE=/workspace/hf_cache/transformers
+      - VLLM_CACHE_ROOT=/workspace/vllm_cache
+      - VLLM_USAGE_STATS_COLLECTION=0
+      - TOKENIZERS_PARALLELISM=false
+
+      - VLLM_MODEL=${VLLM_MODEL:-Qwen/Qwen2.5-0.5B-Instruct}
+      - VLLM_SERVED_MODEL_NAME=${VLLM_SERVED_MODEL_NAME:-local-small}
+      - VLLM_API_HOST=0.0.0.0
+      - VLLM_API_PORT=8000
+      - VLLM_API_KEY=${VLLM_API_KEY:-not-needed}
+      - VLLM_MAX_MODEL_LEN=${VLLM_MAX_MODEL_LEN:-4096}
+      - VLLM_GPU_MEMORY_UTILIZATION=${VLLM_GPU_MEMORY_UTILIZATION:-0.70}
+      - VLLM_DTYPE=${VLLM_DTYPE:-auto}
+
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8000/health >/dev/null || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+    stdin_open: true
+    tty: true
+
+    # No restart yet. Add restart: unless-stopped only after first successful endpoint boot.

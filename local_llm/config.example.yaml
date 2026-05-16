@@ -1,0 +1,84 @@
+version: 1
+
+server:
+  host: "127.0.0.1"
+  port: 8020
+
+storage:
+  database_path: "~/.local/share/local-llm/local_llm.sqlite"
+  artifact_dir: "~/.local/share/local-llm/artifacts"
+
+model_profiles:
+  local_basic:
+    provider: "openai_compatible"
+    base_url: "http://127.0.0.1:8021/v1"
+    api_key: "not-needed"
+    model: "local-small"
+    context_window: 8192
+    defaults:
+      temperature: 0.2
+      max_tokens: 900
+
+corpora:
+  primary_local_corpus:
+    roots:
+      - "/home/wantless/PycharmProjects/automation/local_llm"
+    include_globs:
+      - "**/*.md"
+      - "**/*.py"
+      - "**/*.js"
+      - "**/*.html"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "**/*.toml"
+      - "**/*.txt"
+      - "**/*.json"
+    exclude_globs:
+      - "**/.venv/**"
+      - "**/__pycache__/**"
+      - "**/.git/**"
+      - "**/*.sqlite"
+      - "**/*.sqlite-shm"
+      - "**/*.sqlite-wal"
+      - "**/*.zip"
+      - "**/.mypy_cache/**"
+      - "**/.pytest_cache/**"
+
+rag_profiles:
+  project_basic:
+    enabled: true
+    corpus: "primary_local_corpus"
+    retrieval:
+      method: "sqlite_fts"
+      top_k: 8
+    chunking:
+      target_chars: 1800
+      overlap_chars: 250
+    context:
+      max_context_chars: 14000
+      include_source_headers: true
+
+prompt_profiles:
+  source_grounded_answer:
+    grounding_mode: "require_sources"
+    system: |
+      You are a local source-grounded assistant.
+      Use retrieved context when relevant.
+      Distinguish source-supported facts from inference.
+      Preserve uncertainty.
+      If the retrieved context does not support an answer, say so.
+    user_template: |
+      User request:
+      {user_input}
+
+      Retrieved context:
+      {retrieved_context}
+
+      Answer:
+
+workflows:
+  default_rag_answer:
+    kind: "rag_answer"
+    model_profile: "local_basic"
+    rag_profile: "project_basic"
+    prompt_profile: "source_grounded_answer"

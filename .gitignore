@@ -1,0 +1,57 @@
+
+# ===== automation root safety ignores =====
+
+# Python / build
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Local env / secrets
+.env
+*.env
+.env.*
+*.env.*
+!.env.example
+!**/.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Logs / temp
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# Local databases / runtime state
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+runtime/
+.local/
+
+# Model/runtime caches and large artifacts
+hf_cache/
+vllm_cache/
+cache/
+models/
+eval_outputs/
+outputs/
+pdf_cache/
+pdf_input/
+tts_models/
+
+# Archives
+*.tar
+*.tar.gz
+*.zip

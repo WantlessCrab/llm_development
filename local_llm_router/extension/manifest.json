@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "local_llm_router",
+  "version": "0.4.0",
+  "description": "Local-first LLM provider connector router with provider-neutral FormatCapture continuity.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "http://127.0.0.1:8015/*",
+    "http://localhost:8015/*"
+  ],
+  "background": {
+    "service_worker": "service_worker.js"
+  },
+  "action": {
+    "default_title": "local_llm_router",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "content/format_capture.js",
+        "content/format_renderers.js",
+        "content/format_serializer.js",
+        "content/adapter_base.js",
+        "content/chatgpt.js",
+        "content/overlay.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,1402 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>local_llm_router draft inbox</title>
+    <style>
+		:root {
+			--bg: #120d13;
+			--bg-soft: #19121a;
+			--bg-card: #201722;
+			--bg-card-2: #261b29;
+			--text: #f7eef8;
+			--muted: #c9adca;
+			--muted-2: #9e849f;
+			--border: #4a354d;
+			--border-soft: #36263a;
+			--accent: #d894bd;
+			--accent-2: #b98dd7;
+			--accent-3: #f0c9dd;
+			--danger: #e68a9c;
+			--ok: #b6d7a8;
+			--warn: #e7c07b;
+			--shadow: rgba(0, 0, 0, 0.35);
+			--mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+			--sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html, body {
+			min-height: 100%;
+			margin: 0;
+		}
+
+		body {
+			font-family: var(--sans);
+			background: radial-gradient(circle at 16% 0%, rgba(216, 148, 189, 0.18), transparent 34rem),
+			radial-gradient(circle at 90% 12%, rgba(185, 141, 215, 0.16), transparent 30rem),
+			var(--bg);
+			color: var(--text);
+			padding: 24px;
+		}
+
+		button, input, select, textarea {
+			font: inherit;
+		}
+
+		button {
+			cursor: pointer;
+		}
+
+		.shell {
+			width: min(1480px, 100%);
+			margin: 0 auto;
+		}
+
+		.topbar {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: 16px;
+			align-items: start;
+			margin-bottom: 16px;
+		}
+
+		.title-block h1 {
+			margin: 0;
+			font-size: clamp(28px, 3vw, 42px);
+			line-height: 1.05;
+			letter-spacing: -0.04em;
+			color: var(--text);
+			text-shadow: 0 3px 18px rgba(216, 148, 189, 0.22);
+		}
+
+		.subtitle {
+			margin-top: 8px;
+			color: var(--muted);
+			font-size: 14px;
+		}
+
+		.toolbar {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			justify-content: flex-end;
+			align-items: center;
+		}
+
+		.button, .tab {
+			border: 1px solid var(--border);
+			background: rgba(32, 23, 34, 0.88);
+			color: var(--text);
+			border-radius: 999px;
+			padding: 8px 12px;
+			box-shadow: 0 8px 24px var(--shadow);
+			transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+		}
+
+		.button:hover, .tab:hover {
+			transform: translateY(-1px);
+			background: rgba(47, 34, 51, 0.95);
+			border-color: var(--accent);
+		}
+
+		.button:disabled {
+			opacity: 0.55;
+			cursor: not-allowed;
+			transform: none;
+		}
+
+		.button.danger {
+			border-color: rgba(230, 138, 156, 0.75);
+		}
+
+		.button.ok {
+			border-color: rgba(182, 215, 168, 0.75);
+		}
+
+		.tabs {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin: 16px 0;
+		}
+
+		.tab {
+			font-size: 13px;
+		}
+
+		.tab.active {
+			background: linear-gradient(135deg, rgba(216, 148, 189, 0.34), rgba(185, 141, 215, 0.24));
+			border-color: var(--accent);
+			color: var(--accent-3);
+		}
+
+		.filters {
+			display: grid;
+			grid-template-columns: minmax(220px, 1.1fr) minmax(180px, 0.65fr) minmax(260px, 1fr) minmax(240px, 1fr) auto;
+			gap: 10px;
+			margin: 14px 0 18px;
+			align-items: end;
+			padding: 12px;
+			border: 1px solid var(--border-soft);
+			background: rgba(25, 18, 26, 0.72);
+			border-radius: 18px;
+			box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+		}
+
+		.group-tools {
+			display: grid;
+			grid-template-columns: minmax(240px, 1fr) auto auto;
+			gap: 10px;
+			margin: 0 0 18px;
+			align-items: end;
+			padding: 12px;
+			border: 1px solid var(--border-soft);
+			background: rgba(25, 18, 26, 0.48);
+			border-radius: 18px;
+		}
+
+		.field {
+			display: grid;
+			gap: 5px;
+		}
+
+		.field label {
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: var(--muted-2);
+		}
+
+		.field input,
+		.field select {
+			width: 100%;
+			border: 1px solid var(--border);
+			background: #100b11;
+			color: var(--text);
+			border-radius: 12px;
+			padding: 9px 10px;
+			outline: none;
+		}
+
+		.field input:focus,
+		.field select:focus,
+		textarea:focus {
+			border-color: var(--accent);
+			box-shadow: 0 0 0 3px rgba(216, 148, 189, 0.15);
+		}
+
+		.stats {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+			gap: 10px;
+			margin: 14px 0 8px;
+		}
+
+		.stat {
+			border: 1px solid var(--border-soft);
+			background: rgba(32, 23, 34, 0.74);
+			border-radius: 16px;
+			padding: 12px;
+			transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+		}
+
+		.stat.clickable {
+			cursor: pointer;
+		}
+
+		.stat.clickable:hover {
+			transform: translateY(-1px);
+			border-color: var(--accent);
+			background: rgba(47, 34, 51, 0.88);
+		}
+
+		.stat.active {
+			border-color: var(--accent);
+			background: linear-gradient(135deg, rgba(216, 148, 189, 0.24), rgba(185, 141, 215, 0.16));
+		}
+
+		.stat-value {
+			font-size: 24px;
+			font-weight: 800;
+			line-height: 1;
+		}
+
+		.stat-label {
+			margin-top: 5px;
+			color: var(--muted);
+			font-size: 12px;
+		}
+
+		.status-line {
+			min-height: 22px;
+			margin: 10px 0;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.session-group {
+			border: 1px solid var(--border-soft);
+			background: rgba(25, 18, 26, 0.48);
+			border-radius: 22px;
+			margin: 16px 0;
+			overflow: hidden;
+			box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+		}
+
+		.session-header {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: 12px;
+			padding: 14px 16px;
+			background: linear-gradient(135deg, rgba(216, 148, 189, 0.13), rgba(185, 141, 215, 0.08));
+			border-bottom: 1px solid var(--border-soft);
+		}
+
+		.session-title {
+			font-weight: 800;
+			letter-spacing: -0.02em;
+		}
+
+		.session-meta {
+			margin-top: 5px;
+			color: var(--muted);
+			font-size: 12px;
+			font-family: var(--mono);
+			overflow-wrap: anywhere;
+		}
+
+		.session-actions {
+			display: flex;
+			gap: 8px;
+			align-items: start;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+		}
+
+		.draft-list {
+			display: grid;
+			gap: 12px;
+			padding: 14px;
+		}
+
+		.draft {
+			border: 1px solid var(--border);
+			background: var(--bg-card);
+			border-radius: 18px;
+			overflow: hidden;
+			box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+		}
+
+		.draft summary {
+			list-style: none;
+			cursor: pointer;
+			padding: 14px 16px;
+			background: linear-gradient(135deg, rgba(38, 27, 41, 0.94), rgba(32, 23, 34, 0.94));
+		}
+
+		.draft summary::-webkit-details-marker {
+			display: none;
+		}
+
+		.draft-summary {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: 14px;
+			align-items: start;
+		}
+
+		.draft-title {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			align-items: center;
+			font-weight: 800;
+			font-size: 18px;
+			letter-spacing: -0.02em;
+		}
+
+		.chip {
+			display: inline-flex;
+			align-items: center;
+			border: 1px solid var(--border);
+			border-radius: 999px;
+			padding: 3px 8px;
+			font-size: 11px;
+			line-height: 1.2;
+			color: var(--muted);
+			background: rgba(16, 11, 17, 0.74);
+		}
+
+		.chip.queued {
+			color: var(--accent-3);
+			border-color: rgba(216, 148, 189, 0.72);
+			background: rgba(216, 148, 189, 0.12);
+		}
+
+		.chip.draft_inserted {
+			color: var(--accent-3);
+			border-color: rgba(185, 141, 215, 0.68);
+			background: rgba(185, 141, 215, 0.12);
+		}
+
+		.chip.handled {
+			color: var(--ok);
+			border-color: rgba(182, 215, 168, 0.55);
+			background: rgba(182, 215, 168, 0.09);
+		}
+
+		.chip.failed {
+			color: var(--danger);
+			border-color: rgba(230, 138, 156, 0.68);
+			background: rgba(230, 138, 156, 0.10);
+		}
+
+		.chip.cancelled {
+			color: var(--warn);
+			border-color: rgba(231, 192, 123, 0.68);
+			background: rgba(231, 192, 123, 0.10);
+		}
+
+		.draft-subtitle {
+			margin-top: 6px;
+			color: var(--muted);
+			font-size: 12px;
+			font-family: var(--mono);
+			overflow-wrap: anywhere;
+		}
+
+		.draft-summary-right {
+			color: var(--muted);
+			text-align: right;
+			font-size: 12px;
+			white-space: nowrap;
+		}
+
+		.draft-body {
+			padding: 14px 16px 16px;
+			border-top: 1px solid var(--border-soft);
+			background: rgba(18, 13, 19, 0.45);
+		}
+
+		.meta-grid {
+			display: grid;
+			grid-template-columns: 170px 1fr;
+			gap: 5px 12px;
+			padding: 12px;
+			border: 1px solid var(--border-soft);
+			border-radius: 14px;
+			background: rgba(16, 11, 17, 0.48);
+			font-size: 12px;
+			margin-bottom: 12px;
+		}
+
+		.meta-key {
+			color: var(--muted-2);
+			font-family: var(--mono);
+		}
+
+		.meta-value {
+			color: var(--muted);
+			font-family: var(--mono);
+			overflow-wrap: anywhere;
+		}
+
+		.draft-text {
+			width: 100%;
+			min-height: 280px;
+			max-height: 70vh;
+			resize: vertical;
+			background: #0c080d;
+			color: #fff7fb;
+			border: 1px solid var(--border);
+			border-radius: 14px;
+			padding: 14px;
+			font-family: var(--mono);
+			font-size: 13px;
+			line-height: 1.42;
+			white-space: pre-wrap;
+			tab-size: 2;
+		}
+
+		.diagnostics {
+			margin-top: 12px;
+			border: 1px solid var(--border-soft);
+			background: rgba(16, 11, 17, 0.48);
+			border-radius: 14px;
+			padding: 12px;
+			color: var(--muted);
+			font-family: var(--mono);
+			font-size: 12px;
+			white-space: pre-wrap;
+		}
+
+		.actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 12px;
+		}
+
+		.empty {
+			color: var(--muted);
+			border: 1px dashed var(--border);
+			border-radius: 18px;
+			padding: 28px;
+			background: rgba(25, 18, 26, 0.54);
+			text-align: center;
+		}
+
+		.small {
+			font-size: 12px;
+			color: var(--muted-2);
+		}
+
+		@media (max-width: 980px) {
+			.filters,
+			.group-tools {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		@media (max-width: 820px) {
+			body {
+				padding: 14px;
+			}
+
+			.topbar {
+				grid-template-columns: 1fr;
+			}
+
+			.toolbar {
+				justify-content: flex-start;
+			}
+
+			.stats {
+				grid-template-columns: repeat(2, minmax(100px, 1fr));
+			}
+
+			.session-header, .draft-summary {
+				grid-template-columns: 1fr;
+			}
+
+			.draft-summary-right {
+				text-align: left;
+			}
+
+			.meta-grid {
+				grid-template-columns: 1fr;
+			}
+		}
+    </style>
+</head>
+<body>
+<div class="shell">
+    <header class="topbar">
+        <div class="title-block">
+            <h1>local_llm_router draft inbox</h1>
+            <div class="subtitle">Manual bridge queue for captured LLM messages.</div>
+        </div>
+        <div class="toolbar">
+            <button class="button" id="refresh">Refresh</button>
+            <button class="button" id="expandAll">Expand all</button>
+            <button class="button" id="collapseAll">Collapse all</button>
+            <button class="button danger" id="clearVisibleQueue">Clear selected queue</button>
+            <button class="button danger" id="clearAllQueues">Clear all queued</button>
+        </div>
+    </header>
+
+    <section class="stats" id="stats"></section>
+
+    <nav class="tabs" aria-label="Draft status filters">
+        <button class="tab active" data-status="queued" id="tabQueued">Queued</button>
+        <button class="tab" data-status="draft_inserted" id="tabInserted">Inserted</button>
+        <button class="tab" data-status="handled" id="tabHandled">Handled</button>
+        <button class="tab" data-status="cancelled" id="tabCancelled">Cancelled</button>
+        <button class="tab" data-status="failed" id="tabFailed">Failed</button>
+        <button class="tab" data-status="all" id="tabAll">All</button>
+    </nav>
+
+    <section class="filters">
+        <div class="field">
+            <label for="search">Search</label>
+            <input id="search" type="search" placeholder="Search text, session, title, hash, route..."/>
+        </div>
+        <div class="field">
+            <label for="providerFilter">Provider</label>
+            <select id="providerFilter">
+                <option value="all">All providers</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="queueGroupFilter">Queue group</label>
+            <select id="queueGroupFilter">
+                <option value="all">All queue groups</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="sessionFilter">Session</label>
+            <select id="sessionFilter">
+                <option value="all">All sessions</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>&nbsp;</label>
+            <button class="button" id="clearFilters">Clear filters</button>
+        </div>
+    </section>
+
+    <section class="group-tools">
+        <div class="field">
+            <label for="newQueueGroupName">Create queue group</label>
+            <input id="newQueueGroupName" type="text" placeholder="New queue group name"/>
+        </div>
+        <button class="button ok" id="createQueueGroup">Create group</button>
+        <button class="button danger" id="deleteSelectedGroup">Delete selected group</button>
+    </section>
+
+    <div class="status-line" id="statusLine">Loading drafts…</div>
+
+    <main id="drafts">
+        <div class="empty">Loading…</div>
+    </main>
+</div>
+
+<script>
+    const state = {
+        drafts: [],
+        queueGroups: [],
+        statusFilter: localStorage.getItem("llmr.statusFilter") || "queued",
+        providerFilter: "all",
+        queueGroupFilter: localStorage.getItem("llmr.queueGroupFilter") || "all",
+        sessionFilter: "all",
+        search: "",
+        expandedOverride: null,
+    };
+
+    const els = {
+        stats: document.getElementById("stats"),
+        drafts: document.getElementById("drafts"),
+        statusLine: document.getElementById("statusLine"),
+        refresh: document.getElementById("refresh"),
+        expandAll: document.getElementById("expandAll"),
+        collapseAll: document.getElementById("collapseAll"),
+        clearVisibleQueue: document.getElementById("clearVisibleQueue"),
+        clearAllQueues: document.getElementById("clearAllQueues"),
+        clearFilters: document.getElementById("clearFilters"),
+        search: document.getElementById("search"),
+        providerFilter: document.getElementById("providerFilter"),
+        queueGroupFilter: document.getElementById("queueGroupFilter"),
+        sessionFilter: document.getElementById("sessionFilter"),
+        newQueueGroupName: document.getElementById("newQueueGroupName"),
+        createQueueGroup: document.getElementById("createQueueGroup"),
+        deleteSelectedGroup: document.getElementById("deleteSelectedGroup"),
+        tabs: Array.from(document.querySelectorAll(".tab[data-status]")),
+    };
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function shortId(value, left = 8, right = 6) {
+        const s = String(value || "");
+        if (s.length <= left + right + 3) return s;
+        return `${s.slice(0, left)}…${s.slice(-right)}`;
+    }
+
+    function fmtDate(value) {
+        if (!value) return "";
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return d.toLocaleString();
+    }
+
+    async function api(path, options = {}) {
+        const headers = new Headers(options.headers || {});
+        if (options.body != null && !headers.has("Content-Type")) {
+            headers.set("Content-Type", "application/json");
+        }
+
+        const res = await fetch(path, {
+            ...options,
+            headers,
+        });
+
+        if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(`${res.status} ${res.statusText} ${text}`.trim());
+        }
+        return res.json();
+    }
+
+    function sessionKey(draft) {
+        return draft.source_session_id || `${draft.provider}:${draft.conversation_id || "unknown"}`;
+    }
+
+    function sessionLabel(draft) {
+        const title = draft.conversation_title || "Untitled conversation";
+        const provider = draft.provider || "unknown";
+        const conv = draft.conversation_id ? shortId(draft.conversation_id, 10, 8) : "no-conversation-id";
+        return `${provider} · ${title} · ${conv}`;
+    }
+
+    function queueGroupName(id) {
+        const group = state.queueGroups.find(g => g.queue_group_id === id);
+        return group?.name || id || "Default queue";
+    }
+
+    function draftMarkdown(draft) {
+        return draft.wrapped_body_markdown || draft.wrapped_body || "";
+    }
+
+    function draftPlain(draft) {
+        return draft.wrapped_body_plain || draft.wrapped_body_markdown || draft.wrapped_body || "";
+    }
+
+    function draftHtml(draft) {
+        return draft.wrapped_body_html || richHtml(draft, draftMarkdown(draft));
+    }
+
+    function extractBodyOnly(wrapped) {
+        const text = String(wrapped || "");
+        const start = "--- start content ---";
+        const end = "--- end content ---";
+        const startIndex = text.indexOf(start);
+        const endIndex = text.lastIndexOf(end);
+        if (startIndex >= 0 && endIndex > startIndex) {
+            return text.slice(startIndex + start.length, endIndex).replace(/^\n+|\n+$/g, "");
+        }
+        return text;
+    }
+
+    function metadataText(draft) {
+        return [
+            `delivery_id: ${draft.delivery_id}`,
+            `message_id: ${draft.message_id}`,
+            `route_id: ${draft.route_id}`,
+            `status: ${draft.status}`,
+            `queue_group_id: ${draft.queue_group_id || "default"}`,
+            `queue_group_name: ${draft.queue_group_name || queueGroupName(draft.queue_group_id || "default")}`,
+            `provider: ${draft.provider}`,
+            `source_session_id: ${draft.source_session_id}`,
+            `conversation_id: ${draft.conversation_id || ""}`,
+            `gizmo_id: ${draft.gizmo_id || ""}`,
+            `conversation_title: ${draft.conversation_title || ""}`,
+            `turn_testid: ${draft.turn_testid || ""}`,
+            `capture_source: ${draft.capture_source}`,
+            `format_version: ${draft.format_version || ""}`,
+            `body_hash: ${draft.body_hash}`,
+            `body_length: ${draft.body_length}`,
+            `captured_at: ${draft.captured_at}`,
+            `queued_at: ${draft.queued_at || ""}`,
+            `delivered_at: ${draft.delivered_at || ""}`,
+            `acknowledged_at: ${draft.acknowledged_at || ""}`,
+            `cancelled_at: ${draft.cancelled_at || ""}`,
+            `error: ${draft.error || ""}`,
+            `source_url: ${draft.conversation_url}`,
+        ].join("\n");
+    }
+
+    function diagnosticsText(draft) {
+        const d = draft.format_diagnostics || {};
+        const warnings = Array.isArray(d.warnings) ? d.warnings : [];
+        return [
+            `format_version: ${draft.format_version || ""}`,
+            `markdown_fence_count: ${d.markdown_fence_count ?? ""}`,
+            `dom_pre_count: ${d.dom_pre_count ?? ""}`,
+            `dom_code_count: ${d.dom_code_count ?? ""}`,
+            `fallback_node_count: ${d.fallback_node_count ?? ""}`,
+            `markdown_char_count: ${d.markdown_char_count ?? ""}`,
+            `plain_char_count: ${d.plain_char_count ?? ""}`,
+            `html_char_count: ${d.html_char_count ?? ""}`,
+            `warnings: ${warnings.length ? warnings.join("; ") : ""}`,
+        ].join("\n");
+    }
+
+    function richHtml(draft, text) {
+        return `
+        <article>
+          <h2>${escapeHtml(draft.provider)} / ${escapeHtml(draft.role)} / ${escapeHtml(draft.status)}</h2>
+          <p><strong>Conversation:</strong> ${escapeHtml(draft.conversation_title || draft.conversation_id || "")}</p>
+          <p><strong>Queue:</strong> ${escapeHtml(draft.queue_group_name || queueGroupName(draft.queue_group_id || "default"))}</p>
+          <p><strong>Captured:</strong> ${escapeHtml(draft.captured_at || "")}</p>
+          <p><strong>Source:</strong> ${escapeHtml(draft.conversation_url || "")}</p>
+          <pre style="white-space:pre-wrap;font-family:monospace;">${escapeHtml(text)}</pre>
+        </article>
+      `.trim();
+    }
+
+    async function copyText(text, button, label = "Copied") {
+        await navigator.clipboard.writeText(text);
+        flashButton(button, label);
+    }
+
+    async function copyRich(draft, button) {
+        const markdown = draftMarkdown(draft);
+        const html = draftHtml(draft);
+        if (window.ClipboardItem && navigator.clipboard?.write) {
+            const item = new ClipboardItem({
+                "text/plain": new Blob([markdown], {type: "text/plain"}),
+                "text/html": new Blob([html], {type: "text/html"}),
+            });
+            await navigator.clipboard.write([item]);
+            flashButton(button, "Copied rich");
+            return;
+        }
+        await copyText(markdown, button);
+    }
+
+    function flashButton(button, text) {
+        const old = button.textContent;
+        button.textContent = text;
+        button.disabled = true;
+        setTimeout(() => {
+            button.textContent = old;
+            button.disabled = false;
+        }, 900);
+    }
+
+    function setStatus(message) {
+        els.statusLine.textContent = message;
+    }
+
+    function counts() {
+        const all = state.drafts.length;
+        const queued = state.drafts.filter(d => d.status === "queued").length;
+        const inserted = state.drafts.filter(d => d.status === "draft_inserted").length;
+        const handled = state.drafts.filter(d => d.status === "handled").length;
+        const cancelled = state.drafts.filter(d => d.status === "cancelled").length;
+        const failed = state.drafts.filter(d => d.status === "failed").length;
+        const sessions = new Set(state.drafts.map(sessionKey)).size;
+        const queueGroups = new Set(state.drafts.map(d => d.queue_group_id || "default")).size;
+        return {all, queued, inserted, handled, cancelled, failed, sessions, queueGroups};
+    }
+
+    function setStatusFilter(status) {
+        state.statusFilter = status;
+        state.expandedOverride = null;
+        localStorage.setItem("llmr.statusFilter", state.statusFilter);
+        render();
+    }
+
+    function renderStats() {
+        const c = counts();
+        const items = [
+            {label: "Queued", value: c.queued, status: "queued"},
+            {label: "Inserted", value: c.inserted, status: "draft_inserted"},
+            {label: "Handled", value: c.handled, status: "handled"},
+            {label: "Cancelled", value: c.cancelled, status: "cancelled"},
+            {label: "Failed", value: c.failed, status: "failed"},
+            {label: "All drafts", value: c.all, status: "all"},
+            {label: "Sessions", value: c.sessions, status: null},
+            {label: "Queue groups", value: c.queueGroups, status: null},
+        ];
+
+        els.stats.innerHTML = "";
+        for (const item of items) {
+            const div = document.createElement("div");
+            div.className = "stat";
+
+            if (item.status) {
+                div.classList.add("clickable");
+                div.classList.toggle("active", state.statusFilter === item.status);
+                div.title = `Show ${item.label.toLowerCase()}`;
+                div.onclick = () => setStatusFilter(item.status);
+            }
+
+            div.innerHTML = `
+          <div class="stat-value">${escapeHtml(item.value)}</div>
+          <div class="stat-label">${escapeHtml(item.label)}</div>
+        `;
+
+            els.stats.appendChild(div);
+        }
+
+        document.getElementById("tabQueued").textContent = `Queued (${c.queued})`;
+        document.getElementById("tabInserted").textContent = `Inserted (${c.inserted})`;
+        document.getElementById("tabHandled").textContent = `Handled (${c.handled})`;
+        document.getElementById("tabCancelled").textContent = `Cancelled (${c.cancelled})`;
+        document.getElementById("tabFailed").textContent = `Failed (${c.failed})`;
+        document.getElementById("tabAll").textContent = `All (${c.all})`;
+    }
+
+    function populateFilters() {
+        const previousProvider = state.providerFilter;
+        const previousSession = state.sessionFilter;
+        const previousGroup = state.queueGroupFilter;
+
+        const providers = Array.from(new Set(state.drafts.map(d => d.provider).filter(Boolean))).sort();
+
+        els.providerFilter.innerHTML = `<option value="all">All providers</option>`;
+        for (const provider of providers) {
+            const option = document.createElement("option");
+            option.value = provider;
+            option.textContent = provider;
+            els.providerFilter.appendChild(option);
+        }
+
+        state.providerFilter = providers.includes(previousProvider) ? previousProvider : "all";
+        els.providerFilter.value = state.providerFilter;
+
+        els.queueGroupFilter.innerHTML = `<option value="all">All queue groups</option>`;
+        for (const group of state.queueGroups) {
+            const option = document.createElement("option");
+            option.value = group.queue_group_id;
+            option.textContent = `${group.name}${group.is_default ? " (default)" : ""}`;
+            els.queueGroupFilter.appendChild(option);
+        }
+
+        const groupIds = state.queueGroups.map(g => g.queue_group_id);
+        state.queueGroupFilter = previousGroup === "all" || groupIds.includes(previousGroup) ? previousGroup : "all";
+        els.queueGroupFilter.value = state.queueGroupFilter;
+
+        const bySession = new Map();
+        for (const draft of state.drafts) {
+            const key = sessionKey(draft);
+            if (!bySession.has(key)) bySession.set(key, sessionLabel(draft));
+        }
+
+        els.sessionFilter.innerHTML = `<option value="all">All sessions</option>`;
+        for (const [key, label] of Array.from(bySession.entries()).sort((a, b) => a[1].localeCompare(b[1]))) {
+            const option = document.createElement("option");
+            option.value = key;
+            option.textContent = label;
+            els.sessionFilter.appendChild(option);
+        }
+
+        state.sessionFilter = bySession.has(previousSession) ? previousSession : "all";
+        els.sessionFilter.value = state.sessionFilter;
+    }
+
+    function draftSortKey(draft) {
+        if (state.statusFilter === "queued") {
+            return draft.queued_at || draft.captured_at || "";
+        }
+        if (state.statusFilter === "draft_inserted") {
+            return draft.delivered_at || draft.queued_at || draft.captured_at || "";
+        }
+        if (state.statusFilter === "handled") {
+            return draft.acknowledged_at || draft.delivered_at || draft.queued_at || draft.captured_at || "";
+        }
+        if (state.statusFilter === "cancelled") {
+            return draft.cancelled_at || draft.acknowledged_at || draft.queued_at || draft.captured_at || "";
+        }
+        if (state.statusFilter === "failed") {
+            return draft.queued_at || draft.captured_at || "";
+        }
+        return draft.cancelled_at || draft.acknowledged_at || draft.delivered_at || draft.queued_at || draft.captured_at || "";
+    }
+
+    function filteredDrafts() {
+        const q = state.search.trim().toLowerCase();
+
+        return state.drafts
+            .filter(d => {
+                if (state.statusFilter !== "all" && d.status !== state.statusFilter) return false;
+                if (state.providerFilter !== "all" && d.provider !== state.providerFilter) return false;
+                if (state.queueGroupFilter !== "all" && (d.queue_group_id || "default") !== state.queueGroupFilter) return false;
+                if (state.sessionFilter !== "all" && sessionKey(d) !== state.sessionFilter) return false;
+
+                if (!q) return true;
+
+                const haystack = [
+                    d.delivery_id,
+                    d.message_id,
+                    d.route_id,
+                    d.status,
+                    d.queue_group_id,
+                    d.queue_group_name,
+                    d.provider,
+                    d.source_session_id,
+                    d.conversation_id,
+                    d.gizmo_id,
+                    d.conversation_title,
+                    d.role,
+                    d.turn_testid,
+                    d.capture_source,
+                    d.body_hash,
+                    d.body_length,
+                    d.captured_at,
+                    d.delivered_at,
+                    d.acknowledged_at,
+                    d.cancelled_at,
+                    d.error,
+                    d.conversation_url,
+                    d.wrapped_body,
+                    d.wrapped_body_markdown,
+                    d.wrapped_body_plain,
+                ].join(" ").toLowerCase();
+
+                return haystack.includes(q);
+            })
+            .sort((a, b) => draftSortKey(b).localeCompare(draftSortKey(a)));
+    }
+
+    function groupKey(draft) {
+        return `${draft.queue_group_id || "default"}::${sessionKey(draft)}`;
+    }
+
+    function groupDrafts(drafts) {
+        const groups = new Map();
+
+        for (const draft of drafts) {
+            const key = groupKey(draft);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(draft);
+        }
+
+        return Array.from(groups.entries())
+            .map(([key, items]) => {
+                items.sort((a, b) => draftSortKey(b).localeCompare(draftSortKey(a)));
+                return {key, items};
+            })
+            .sort((a, b) => draftSortKey(b.items[0]).localeCompare(draftSortKey(a.items[0])));
+    }
+
+    function metaGrid(draft) {
+        const fields = [
+            ["delivery_id", draft.delivery_id],
+            ["message_id", draft.message_id],
+            ["route_id", draft.route_id],
+            ["status", draft.status],
+            ["queue_group_id", draft.queue_group_id || "default"],
+            ["queue_group_name", draft.queue_group_name || queueGroupName(draft.queue_group_id || "default")],
+            ["queued_at", draft.queued_at],
+            ["delivered_at", draft.delivered_at],
+            ["acknowledged_at", draft.acknowledged_at],
+            ["cancelled_at", draft.cancelled_at],
+            ["error", draft.error],
+            ["provider", draft.provider],
+            ["source_session_id", draft.source_session_id],
+            ["conversation_id", draft.conversation_id],
+            ["gizmo_id", draft.gizmo_id],
+            ["turn_testid", draft.turn_testid],
+            ["capture_source", draft.capture_source],
+            ["format_version", draft.format_version],
+            ["body_hash", draft.body_hash],
+            ["body_length", draft.body_length],
+            ["captured_at", draft.captured_at],
+            ["source_url", draft.conversation_url],
+        ];
+
+        const grid = document.createElement("div");
+        grid.className = "meta-grid";
+
+        for (const [key, value] of fields) {
+            const k = document.createElement("div");
+            k.className = "meta-key";
+            k.textContent = key;
+
+            const v = document.createElement("div");
+            v.className = "meta-value";
+            v.textContent = value == null ? "" : String(value);
+
+            grid.append(k, v);
+        }
+
+        return grid;
+    }
+
+    async function cancelDraft(draft) {
+        await api(`/api/v1/drafts/${draft.delivery_id}/cancel`, {
+            method: "POST",
+            body: JSON.stringify({reason: "cancelled from localhost inbox"}),
+        });
+        await loadAll();
+    }
+
+    async function markHandled(draft) {
+        await api(`/api/v1/drafts/${draft.delivery_id}/handled`, {method: "POST"});
+        await loadAll();
+    }
+
+    function renderDraft(draft) {
+        const details = document.createElement("details");
+        details.className = "draft";
+
+        const defaultOpen =
+            state.expandedOverride === "all" ||
+            (state.expandedOverride === null && draft.status === "queued");
+
+        details.open = defaultOpen;
+
+        const summary = document.createElement("summary");
+        summary.innerHTML = `
+        <div class="draft-summary">
+          <div>
+            <div class="draft-title">
+              <span>${escapeHtml(draft.provider)} / ${escapeHtml(draft.role)}</span>
+              <span class="chip ${escapeHtml(draft.status)}">${escapeHtml(draft.status)}</span>
+              <span class="chip">${escapeHtml(draft.capture_source)}</span>
+              <span class="chip">${escapeHtml(draft.body_length)} chars</span>
+              <span class="chip">${escapeHtml(draft.queue_group_name || queueGroupName(draft.queue_group_id || "default"))}</span>
+            </div>
+            <div class="draft-subtitle">
+              ${escapeHtml(draft.conversation_title || "Untitled conversation")}
+              · ${escapeHtml(shortId(draft.conversation_id || ""))}
+              · ${escapeHtml(draft.turn_testid || "")}
+            </div>
+          </div>
+          <div class="draft-summary-right">
+            <div>${escapeHtml(fmtDate(draftSortKey(draft)))}</div>
+            <div>${escapeHtml(shortId(draft.body_hash || "", 8, 4))}</div>
+          </div>
+        </div>
+      `;
+
+        const body = document.createElement("div");
+        body.className = "draft-body";
+
+        body.appendChild(metaGrid(draft));
+
+        const textarea = document.createElement("textarea");
+        textarea.className = "draft-text";
+        textarea.value = draftMarkdown(draft);
+        textarea.spellcheck = false;
+        body.appendChild(textarea);
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const copyMarkdownButton = button("Copy Markdown", () => copyText(draftMarkdown(draft), copyMarkdownButton, "Copied Markdown"));
+        const copyPlainButton = button("Copy Plain", () => copyText(draftPlain(draft), copyPlainButton, "Copied Plain"));
+        const copyRichButton = button("Copy Rich", () => copyRich(draft, copyRichButton));
+        const copyBodyButton = button("Copy body only", () => copyText(extractBodyOnly(draftMarkdown(draft)), copyBodyButton));
+        const copyMetaButton = button("Copy metadata", () => copyText(metadataText(draft), copyMetaButton));
+        const copyDiagButton = button("Copy diagnostics", () => copyText(diagnosticsText(draft), copyDiagButton));
+        const openButton = button("Open source", () => window.open(draft.conversation_url, "_blank"));
+
+        actions.append(copyMarkdownButton, copyPlainButton, copyRichButton, copyBodyButton, copyMetaButton, copyDiagButton, openButton);
+
+        if (draft.status === "queued") {
+            const deleteButton = button("Delete from queue", async () => {
+                deleteButton.disabled = true;
+                await cancelDraft(draft);
+            });
+            deleteButton.classList.add("danger");
+            actions.append(deleteButton);
+        }
+
+        if (draft.status !== "handled" && draft.status !== "cancelled") {
+            const handledButton = button("Mark handled", async () => {
+                handledButton.disabled = true;
+                await markHandled(draft);
+            });
+            actions.append(handledButton);
+        } else if (draft.status === "handled") {
+            const handledChip = document.createElement("span");
+            handledChip.className = "chip handled";
+            handledChip.textContent = `Handled${draft.acknowledged_at ? " · " + fmtDate(draft.acknowledged_at) : ""}`;
+            actions.append(handledChip);
+        } else if (draft.status === "cancelled") {
+            const cancelledChip = document.createElement("span");
+            cancelledChip.className = "chip cancelled";
+            cancelledChip.textContent = `Cancelled${draft.cancelled_at ? " · " + fmtDate(draft.cancelled_at) : ""}`;
+            actions.append(cancelledChip);
+        }
+
+        body.appendChild(actions);
+
+        const diagnostics = document.createElement("div");
+        diagnostics.className = "diagnostics";
+        diagnostics.textContent = diagnosticsText(draft);
+        body.appendChild(diagnostics);
+
+        details.append(summary, body);
+        return details;
+    }
+
+    function button(text, onclick) {
+        const b = document.createElement("button");
+        b.className = "button";
+        b.type = "button";
+        b.textContent = text;
+        b.onclick = onclick;
+        return b;
+    }
+
+    function renderSessionGroup(group) {
+        const first = group.items[0];
+        const queued = group.items.filter(d => d.status === "queued").length;
+        const inserted = group.items.filter(d => d.status === "draft_inserted").length;
+        const handled = group.items.filter(d => d.status === "handled").length;
+        const cancelled = group.items.filter(d => d.status === "cancelled").length;
+        const failed = group.items.filter(d => d.status === "failed").length;
+
+        const section = document.createElement("section");
+        section.className = "session-group";
+
+        const header = document.createElement("div");
+        header.className = "session-header";
+        header.innerHTML = `
+        <div>
+          <div class="session-title">${escapeHtml(first.conversation_title || "Untitled conversation")}</div>
+          <div class="session-meta">
+            queue=${escapeHtml(first.queue_group_name || queueGroupName(first.queue_group_id || "default"))}
+            <br />
+            source_session_id=${escapeHtml(sessionKey(first))}
+            <br />
+            conversation_id=${escapeHtml(first.conversation_id || "")}
+            ${first.gizmo_id ? `<br />gizmo_id=${escapeHtml(first.gizmo_id)}` : ""}
+          </div>
+        </div>
+        <div class="session-actions">
+          <span class="chip queued">${queued} queued</span>
+          <span class="chip draft_inserted">${inserted} inserted</span>
+          <span class="chip handled">${handled} handled</span>
+          <span class="chip cancelled">${cancelled} cancelled</span>
+          <span class="chip failed">${failed} failed</span>
+          <span class="chip">${group.items.length} total</span>
+        </div>
+      `;
+
+        const list = document.createElement("div");
+        list.className = "draft-list";
+
+        for (const draft of group.items) {
+            list.appendChild(renderDraft(draft));
+        }
+
+        section.append(header, list);
+        return section;
+    }
+
+    function render() {
+        renderStats();
+        populateFilters();
+        syncTabs();
+
+        const drafts = filteredDrafts();
+        const groups = groupDrafts(drafts);
+
+        els.drafts.innerHTML = "";
+
+        if (!groups.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty";
+            empty.innerHTML = `
+          <strong>No drafts match the current filters.</strong>
+          <div class="small">Try All, clear filters, or refresh after capture.</div>
+        `;
+            els.drafts.appendChild(empty);
+            setStatus(`Showing 0 drafts from ${state.drafts.length} stored drafts.`);
+            return;
+        }
+
+        for (const group of groups) {
+            els.drafts.appendChild(renderSessionGroup(group));
+        }
+
+        setStatus(`Showing ${drafts.length} drafts across ${groups.length} session/queue group${groups.length === 1 ? "" : "s"}.`);
+    }
+
+    function syncTabs() {
+        for (const tab of els.tabs) {
+            tab.classList.toggle("active", tab.dataset.status === state.statusFilter);
+        }
+    }
+
+    async function loadQueueGroups() {
+        const data = await api("/api/v1/queue-groups");
+        state.queueGroups = data.queue_groups || [];
+    }
+
+    async function loadDrafts() {
+        const params = new URLSearchParams();
+        params.set("include_handled", "true");
+        if (state.queueGroupFilter !== "all") {
+            params.set("queue_group_id", state.queueGroupFilter);
+        }
+        const data = await api(`/api/v1/drafts?${params.toString()}`);
+        state.drafts = data.drafts || [];
+    }
+
+    async function loadAll() {
+        setStatus("Loading drafts…");
+        await loadQueueGroups();
+        await loadDrafts();
+        render();
+    }
+
+    async function clearQueued({allGroups = false} = {}) {
+        const groupId = allGroups ? null : (state.queueGroupFilter === "all" ? null : state.queueGroupFilter);
+        const label = allGroups ? "all queued drafts" : (groupId ? `queued drafts in ${queueGroupName(groupId)}` : "all visible queued drafts");
+
+        if (!confirm(`Clear ${label}? This cancels queued deliveries but preserves captured message history.`)) {
+            return;
+        }
+
+        const body = {
+            queue_group_id: groupId,
+            provider: state.providerFilter === "all" ? null : state.providerFilter,
+            reason: allGroups ? "cleared all queues from localhost inbox" : "cleared selected queue from localhost inbox",
+        };
+
+        const response = await api("/api/v1/drafts/clear-queued", {
+            method: "POST",
+            body: JSON.stringify(body),
+        });
+
+        await loadAll();
+        setStatus(`Cancelled ${response.cancelled_count} queued draft${response.cancelled_count === 1 ? "" : "s"}.`);
+    }
+
+    async function createQueueGroup() {
+        const name = els.newQueueGroupName.value.trim();
+        if (!name) {
+            setStatus("Enter a queue group name.");
+            return;
+        }
+
+        const response = await api("/api/v1/queue-groups", {
+            method: "POST",
+            body: JSON.stringify({name}),
+        });
+
+        els.newQueueGroupName.value = "";
+        await loadAll();
+
+        if (response.queue_group?.queue_group_id) {
+            state.queueGroupFilter = response.queue_group.queue_group_id;
+            localStorage.setItem("llmr.queueGroupFilter", state.queueGroupFilter);
+            render();
+        }
+
+        setStatus(`Created queue group: ${response.queue_group?.name || name}`);
+    }
+
+    async function deleteSelectedQueueGroup() {
+        const groupId = state.queueGroupFilter;
+        if (!groupId || groupId === "all") {
+            setStatus("Select a specific queue group before deleting.");
+            return;
+        }
+        if (groupId === "default") {
+            setStatus("Default queue cannot be deleted.");
+            return;
+        }
+
+        const groupName = queueGroupName(groupId);
+        if (!confirm(`Delete queue group "${groupName}"? Queued drafts in that group will be cancelled and sessions will fall back to Default queue.`)) {
+            return;
+        }
+
+        const response = await api(`/api/v1/queue-groups/${encodeURIComponent(groupId)}/delete`, {
+            method: "POST",
+            body: JSON.stringify({
+                cancel_queued: true,
+                reason: "deleted from localhost inbox",
+            }),
+        });
+
+        state.queueGroupFilter = "all";
+        localStorage.setItem("llmr.queueGroupFilter", state.queueGroupFilter);
+
+        await loadAll();
+        setStatus(`Deleted queue group. Cancelled queued drafts: ${response.cancelled_count || 0}.`);
+    }
+
+    function bindEvents() {
+        els.refresh.onclick = () => loadAll().catch(showError);
+
+        els.expandAll.onclick = () => {
+            state.expandedOverride = "all";
+            render();
+        };
+
+        els.collapseAll.onclick = () => {
+            state.expandedOverride = "none";
+            render();
+            document.querySelectorAll("details.draft").forEach(d => d.open = false);
+        };
+
+        els.clearVisibleQueue.onclick = () => clearQueued({allGroups: false}).catch(showError);
+        els.clearAllQueues.onclick = () => clearQueued({allGroups: true}).catch(showError);
+        els.createQueueGroup.onclick = () => createQueueGroup().catch(showError);
+        els.deleteSelectedGroup.onclick = () => deleteSelectedQueueGroup().catch(showError);
+
+        els.clearFilters.onclick = () => {
+            state.statusFilter = "queued";
+            state.providerFilter = "all";
+            state.queueGroupFilter = "all";
+            state.sessionFilter = "all";
+            state.search = "";
+            state.expandedOverride = null;
+            els.search.value = "";
+            localStorage.setItem("llmr.statusFilter", state.statusFilter);
+            localStorage.setItem("llmr.queueGroupFilter", state.queueGroupFilter);
+            loadAll().catch(showError);
+        };
+
+        els.search.oninput = () => {
+            state.search = els.search.value;
+            render();
+        };
+
+        els.providerFilter.onchange = () => {
+            state.providerFilter = els.providerFilter.value;
+            render();
+        };
+
+        els.queueGroupFilter.onchange = () => {
+            state.queueGroupFilter = els.queueGroupFilter.value;
+            localStorage.setItem("llmr.queueGroupFilter", state.queueGroupFilter);
+            loadAll().catch(showError);
+        };
+
+        els.sessionFilter.onchange = () => {
+            state.sessionFilter = els.sessionFilter.value;
+            render();
+        };
+
+        for (const tab of els.tabs) {
+            tab.onclick = () => {
+                setStatusFilter(tab.dataset.status);
+            };
+        }
+    }
+
+    function showError(err) {
+        console.error(err);
+        els.drafts.innerHTML = "";
+        const box = document.createElement("div");
+        box.className = "empty";
+        box.innerHTML = `<strong>Error loading drafts.</strong><div class="small">${escapeHtml(err.message || String(err))}</div>`;
+        els.drafts.appendChild(box);
+        setStatus("Error.");
+    }
+
+    bindEvents();
+
+    if (!["queued", "draft_inserted", "handled", "cancelled", "failed", "all"].includes(state.statusFilter)) {
+        state.statusFilter = "queued";
+    }
+
+    loadAll().catch(showError);
+
+    setInterval(() => {
+        loadAll().catch(() => {
+        });
+    }, 2500);
+
+    window.addEventListener("focus", () => {
+        loadAll().catch(() => {});
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+            loadAll().catch(() => {});
+        }
+    });
+</script>
+</body>
+</html>

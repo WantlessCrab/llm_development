@@ -1,0 +1,14 @@
+[Unit]
+Description=local_llm backend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/local-llm/app
+ExecStart=%h/.local/bin/local-llm serve
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

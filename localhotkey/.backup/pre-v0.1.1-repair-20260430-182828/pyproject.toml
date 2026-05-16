@@ -1,0 +1,10 @@
+[project]
+name = "localhotkey"
+version = "0.1.1"
+description = "Lightweight user-local hotkey automation app for Linux Mint Cinnamon/X11"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6.0"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

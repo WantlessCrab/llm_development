@@ -1,0 +1,32 @@
+# Runtime caches / model storage
+hf_cache/
+vllm_cache/
+models/
+
+# Environment / secrets
+.env
+*.env
+
+# Python/cache noise
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Git/editor noise
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Logs/temp
+*.log
+tmp/
+.temp/
+.cache/
+
+# Build/export artifacts
+*.tar
+*.tar.gz
+*.zip

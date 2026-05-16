@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+		:root {
+			--bg: #171018;
+			--panel: #241828;
+			--text: #f7eef8;
+			--muted: #c9adca;
+			--border: #5a3c5e;
+			--accent: #d894bd;
+			--danger: #e68a9c;
+			--ok: #b6d7a8;
+		}
+
+		body {
+			font-family: system-ui, sans-serif;
+			min-width: 360px;
+			margin: 0;
+			padding: 12px;
+			background: var(--bg);
+			color: var(--text);
+		}
+
+		h3 {
+			margin: 0 0 10px;
+			color: #f0c9dd;
+			letter-spacing: -0.02em;
+		}
+
+		button, select, input {
+			width: 100%;
+			margin: 5px 0;
+			padding: 9px;
+			border: 1px solid var(--border);
+			background: var(--panel);
+			color: var(--text);
+			border-radius: 12px;
+		}
+
+		button {
+			cursor: pointer;
+		}
+
+		button:hover {
+			border-color: var(--accent);
+			background: #2d2031;
+		}
+
+		button:disabled {
+			opacity: .55;
+			cursor: not-allowed;
+		}
+
+		button.danger {
+			border-color: rgba(230, 138, 156, .75);
+		}
+
+		button.ok {
+			border-color: rgba(182, 215, 168, .75);
+		}
+
+		pre {
+			white-space: pre-wrap;
+			font-size: 11px;
+			background: #0f0a10;
+			color: var(--muted);
+			padding: 9px;
+			border-radius: 10px;
+			border: 1px solid #38253c;
+			max-height: 220px;
+			overflow: auto;
+		}
+
+		.hint, .small {
+			font-size: 11px;
+			color: var(--muted);
+			margin-bottom: 8px;
+		}
+
+		.session-state, .panel {
+			font-size: 11px;
+			color: var(--muted);
+			border: 1px solid #38253c;
+			background: #100b11;
+			border-radius: 10px;
+			padding: 8px;
+			margin-bottom: 8px;
+			font-family: ui-monospace, monospace;
+		}
+
+		.queue {
+			margin-top: 8px;
+			display: grid;
+			gap: 7px;
+			max-height: 320px;
+			overflow: auto;
+		}
+
+		.queue-item {
+			border: 1px solid #38253c;
+			background: #100b11;
+			border-radius: 12px;
+			padding: 8px;
+		}
+
+		.queue-title {
+			font-size: 12px;
+			font-weight: 700;
+			color: var(--text);
+			line-height: 1.25;
+		}
+
+		.queue-meta {
+			margin-top: 4px;
+			font-size: 10.5px;
+			color: var(--muted);
+			font-family: ui-monospace, monospace;
+			line-height: 1.25;
+		}
+    </style>
+</head>
+<body>
+<h3>local_llm_router</h3>
+<div class="hint">Manual bridge controls for the active ChatGPT tab.</div>
+
+<div id="sessionState" class="session-state">Session state unknown.</div>
+
+<button id="status">Check active tab</button>
+<button id="capture">Capture latest assistant</button>
+<button id="insertNext">Insert next queued draft</button>
+<button id="loadQueue">Load selectable queue</button>
+<button id="clearQueue" class="danger">Clear current queue</button>
+<button id="resetOverlay">Reset overlay on active tab</button>
+<button id="refreshActiveOverlay">Refresh active overlay</button>
+<button id="refreshAllOverlays">Refresh all overlays</button>
+
+<div class="panel">
+    <div class="small">Queue group</div>
+    <select id="queueGroupSelect"></select>
+    <button id="assignQueueGroup">Assign current session to selected group</button>
+    <input id="newQueueGroupName" placeholder="New queue group name">
+    <button id="createQueueGroup">Create and assign group</button>
+    <button id="deleteQueueGroup" class="danger">Delete selected group</button>
+</div>
+
+<button id="disconnectSession" class="danger">Disconnect this session</button>
+<button id="reconnectSession" class="ok">Reconnect this session</button>
+<button id="inbox">Open draft inbox</button>
+
+<div id="queue" class="queue"></div>
+
+<pre id="out">Ready.</pre>
+
+<script src="popup.js"></script>
+</body>
+</html>

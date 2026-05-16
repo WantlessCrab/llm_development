@@ -1,0 +1,29 @@
+# local_llm registration patch for qwen36_35b_q4_llamacpp.
+#
+# Target file:
+#   /home/wantless/.config/local-llm/config.yaml
+#
+# Merge these entries under the existing top-level model_profiles and workflows
+# mappings. Preserve existing entries such as local_basic and default_rag_answer.
+#
+# Endpoint prerequisite:
+#   http://127.0.0.1:8023/v1/models must include:
+#   local-qwen36-35b-q4-llamacpp
+
+model_profiles:
+  local_qwen36_35b_q4_llamacpp:
+    provider: "openai_compatible"
+    base_url: "http://127.0.0.1:8023/v1"
+    api_key: "not-needed"
+    model: "local-qwen36-35b-q4-llamacpp"
+    context_window: 4096
+    defaults:
+      temperature: 0.2
+      max_tokens: 384
+
+workflows:
+  qwen36_35b_q4_llamacpp_rag_answer:
+    kind: "rag_answer"
+    model_profile: "local_qwen36_35b_q4_llamacpp"
+    rag_profile: "project_basic"
+    prompt_profile: "source_grounded_answer"

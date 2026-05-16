@@ -1,0 +1,371 @@
+# dockerfile.llamacpp_rocm
+# ----------------------------------------------------------------------
+# 1. BASE IMAGE
+# ----------------------------------------------------------------------
+# Uses AMD's official ROCm Ubuntu 24.04 development image.
+#
+# Target runtime:
+#   - llama.cpp server
+#   - ROCm/HIP backend
+#   - AMD RX 7900 XTX / gfx1100 compile target
+#   - Qwen3.6 35B A3B GGUF inference
+#
+# Build-time checks verify:
+#   - ROCm user-space exists
+#   - llama.cpp source revision is pinned
+#   - qwen35moe / qwen3next source support exists
+#   - required llama-server flags exist
+#
+# Runtime GPU visibility is validated by compose + smoke scripts.
+#
+# AMD documents ROCm Docker containers using rocm/dev-ubuntu-24.04:7.1.1-complete
+# with /dev/kfd, /dev/dri, SYS_PTRACE, ipc=host, and group access for GPU use.
+# AMD's llama.cpp source-build path uses a ROCm Ubuntu base image with GGML_HIP=ON,
+# AMDGPU_TARGETS, CMAKE_BUILD_TYPE=Release, and LLAMA_CURL=ON.
+ARG BASE_IMAGE="rocm/dev-ubuntu-24.04:7.1.1-complete"
+
+# ----------------------------------------------------------------------
+# 2. BUILDER STAGE
+# ----------------------------------------------------------------------
+FROM ${BASE_IMAGE} AS builder
+
+SHELL ["/bin/bash", "-lc"]
+
+# ----------------------------------------------------------------------
+# 3. BUILD-TIME SOURCE / ROCm
+# ----------------------------------------------------------------------
+# Source repo upstream ggml-org/llama.cpp contains:
+#   - qwen35moe and qwen3next source support, --cpu-moe, --n-cpu-moe, --cache-type-k, --cache-type-v, --flash-attn
+
+# ROCm/llama.cpp remains a fallback source family
+ARG LLAMACPP_REPO="https://github.com/ggml-org/llama.cpp.git"
+ARG LLAMACPP_REF="cfff1fc3003239cfe00aca031345107687d30d7b"
+
+# RX 7900 XTX / Navi 31 target.
+ARG AMDGPU_TARGETS="gfx1100"
+
+ARG CMAKE_BUILD_TYPE="Release"
+ARG LLAMA_CURL="ON"
+
+# FOLLOW-UP: Consider adding explicit rocWMMA / hipBLASLt tuning flags
+ARG LLAMA_BUILD_JOBS=""
+
+# ----------------------------------------------------------------------
+# 4. BUILDER ENVIRONMENT
+# ----------------------------------------------------------------------
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROCM_PATH=/opt/rocm
+ENV HIP_PATH=/opt/rocm
+ENV PATH=/opt/rocm/bin:${PATH}
+ENV LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm/lib64:${LD_LIBRARY_PATH}
+ENV AMDGPU_TARGETS=${AMDGPU_TARGETS}
+
+WORKDIR /workspace
+
+# ----------------------------------------------------------------------
+# 5. SYSTEM BUILD DEPENDENCIES
+# ----------------------------------------------------------------------
+# Build dependencies only. Runtime stage installs a smaller runtime package set.
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    git \
+    git-lfs \
+    libcurl4-openssl-dev \
+    ninja-build \
+    pkg-config \
+    python3 \
+    python3-pip \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ----------------------------------------------------------------------
+# 6. VERIFY ROCm BUILD USER-SPACE
+# ----------------------------------------------------------------------
+# Build-time ROCm user-space check
+RUN echo "===== ROCm user-space =====" && \
+    test -d /opt/rocm && \
+    (cat /opt/rocm/.info/version || true) && \
+    command -v hipcc && \
+    hipcc --version && \
+    find /opt/rocm -maxdepth 3 -type f \( \
+      -name "libamdhip64.so*" -o \
+      -name "librocblas.so*" -o \
+      -name "libhipblas.so*" \
+    \) -print | sort | sed -n '1,120p'
+
+# ----------------------------------------------------------------------
+# 7. FETCH PINNED llama.cpp SOURCE
+# ----------------------------------------------------------------------
+RUN git clone "${LLAMACPP_REPO}" /workspace/llama.cpp && \
+    cd /workspace/llama.cpp && \
+    git checkout "${LLAMACPP_REF}" && \
+    echo "===== llama.cpp pinned source =====" && \
+    git rev-parse HEAD && \
+    git log -1 --oneline
+
+# ----------------------------------------------------------------------
+# 8. VERIFY REQUIRED MODEL / SERVER SOURCE SUPPORT
+# ----------------------------------------------------------------------
+# checks revision includes requirments by Qwen3.6 GGUF target and VRAM-control
+RUN set -euo pipefail && \
+    cd /workspace/llama.cpp && \
+    echo "===== qwen35moe / qwen3next source support =====" && \
+    grep -RIn "qwen35moe" src gguf-py | sed -n '1,80p' && \
+    grep -RIn "qwen3next" src gguf-py tests | sed -n '1,80p' && \
+    echo "===== required server/runtime flags in source docs =====" && \
+    grep -RIn -- "--cpu-moe" common tools/server tools/cli tools/completion | sed -n '1,80p' && \
+    grep -RIn -- "--n-cpu-moe" common tools/server tools/cli tools/completion | sed -n '1,80p' && \
+    grep -RIn -- "--cache-type-k" common tools/server tools/cli tools/completion | sed -n '1,80p' && \
+    grep -RIn -- "--cache-type-v" common tools/server tools/cli tools/completion | sed -n '1,80p' && \
+    grep -RIn -- "--flash-attn" common tools/server tools/cli tools/completion | sed -n '1,80p'
+
+# ----------------------------------------------------------------------
+# 9. BUILD llama.cpp WITH ROCm/HIP
+# ----------------------------------------------------------------------
+# Builds:
+#   - llama-server: OpenAI-compatible HTTP serving target
+#   - llama-cli: direct command-line sanity target
+#   - llama-bench: benchmark/throughput diagnostic target
+#
+# FOLLOW-UP:
+#   If this source revision exposes additional ROCm-specific CMake controls
+#   for rocWMMA, hipBLASLt, or architecture-specific kernels, add only after
+#   the first Qwen3.6 API path is stable.
+RUN cd /workspace/llama.cpp && \
+    cmake -S . -B build -G Ninja \
+      -DGGML_HIP=ON \
+      -DAMDGPU_TARGETS="${AMDGPU_TARGETS}" \
+      -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
+      -DLLAMA_CURL="${LLAMA_CURL}" && \
+    JOBS="${LLAMA_BUILD_JOBS:-$(nproc)}" && \
+    echo "Building with ${JOBS} jobs" && \
+    cmake --build build --target llama-server llama-cli llama-bench -j "${JOBS}"
+
+# ----------------------------------------------------------------------
+# 10. INSTALL BUILT ARTIFACTS INTO A CLEAN PREFIX
+# ----------------------------------------------------------------------
+RUN mkdir -p /opt/llama-prefix/bin /opt/llama-prefix/lib /opt/llama-prefix/share/doc/llama.cpp && \
+    install -m 0755 /workspace/llama.cpp/build/bin/llama-server /opt/llama-prefix/bin/llama-server && \
+    install -m 0755 /workspace/llama.cpp/build/bin/llama-cli /opt/llama-prefix/bin/llama-cli && \
+    install -m 0755 /workspace/llama.cpp/build/bin/llama-bench /opt/llama-prefix/bin/llama-bench && \
+    find /workspace/llama.cpp/build \( -type f -o -type l \) -name "*.so*" -exec cp -a {} /opt/llama-prefix/lib/ \; && \
+    test -n "$(find /opt/llama-prefix/lib -maxdepth 1 \( -type f -o -type l \) -name '*.so*' -print -quit)" && \
+    cp /workspace/llama.cpp/LICENSE /opt/llama-prefix/share/doc/llama.cpp/LICENSE && \
+    echo "${LLAMACPP_REPO}" > /opt/llama-prefix/share/doc/llama.cpp/source_repo.txt && \
+    echo "${LLAMACPP_REF}" > /opt/llama-prefix/share/doc/llama.cpp/source_ref.txt && \
+    echo "===== Installed llama.cpp prefix files =====" && \
+    find /opt/llama-prefix -maxdepth 3 \( -type f -o -type l \) -print | sort | sed -n '1,240p' && \
+    echo "===== Prefix binary dynamic links =====" && \
+    export LD_LIBRARY_PATH="/opt/llama-prefix/lib:${LD_LIBRARY_PATH}" && \
+    ldd /opt/llama-prefix/bin/llama-server | tee /tmp/llama-server-prefix-ldd.txt && \
+    ! grep -q "not found" /tmp/llama-server-prefix-ldd.txt
+# ----------------------------------------------------------------------
+# 11. BUILD-TIME SERVER VALIDATION
+# ----------------------------------------------------------------------
+# Checks installed-prefix binary presence, dynamic-library resolution, and required flags.
+#
+# Capture stdout and stderr because CLI help output may be written to either stream.
+
+# FOLLOW-UP:
+#   --fit and --fit-target are intentionally not required here. They were
+#   discussed as useful VRAM-reserve controls, but must be proven against the
+#   selected source revision before being treated as contract flags.
+RUN export LD_LIBRARY_PATH="/opt/llama-prefix/lib:${LD_LIBRARY_PATH}" && \
+    ldd /opt/llama-prefix/bin/llama-server | tee /tmp/llama-server-ldd.txt && \
+    ! grep -q "not found" /tmp/llama-server-ldd.txt && \
+    /opt/llama-prefix/bin/llama-server --version && \
+    /opt/llama-prefix/bin/llama-server --help > /tmp/llama-server-help.txt 2>&1 && \
+    for flag in \
+      "--model" \
+      "--alias" \
+      "--host" \
+      "--port" \
+      "--device" \
+      "--ctx-size" \
+      "--n-gpu-layers" \
+      "--cpu-moe" \
+      "--n-cpu-moe" \
+      "--cache-type-k" \
+      "--cache-type-v" \
+      "--flash-attn" \
+      "--batch-size" \
+      "--ubatch-size" \
+      "--threads" \
+      "--threads-batch" \
+      "--parallel" ; do \
+        grep -q -- "${flag}" /tmp/llama-server-help.txt || { echo "ERROR: missing llama-server flag ${flag}"; exit 1; }; \
+      done && \
+    echo "✓ llama-server installed-prefix flag contract satisfied"
+
+# ----------------------------------------------------------------------
+# 12. RUNTIME STAGE
+# ----------------------------------------------------------------------
+FROM ${BASE_IMAGE} AS runtime
+
+SHELL ["/bin/bash", "-lc"]
+
+# ----------------------------------------------------------------------
+# 13. RUNTIME ENVIRONMENT
+# ----------------------------------------------------------------------
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROCM_PATH=/opt/rocm
+ENV HIP_PATH=/opt/rocm
+ENV PATH=/usr/local/bin:/opt/rocm/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/lib:/opt/rocm/lib:/opt/rocm/lib64:${LD_LIBRARY_PATH}
+
+# Runtime identity.
+ENV RUNTIME_ID=qwen36_35b_q4_llamacpp
+
+# ROCm device visibility defaults. Compose remains the runtime authority.
+ENV ROCR_VISIBLE_DEVICES=0
+ENV HIP_VISIBLE_DEVICES=0
+ENV PYTHONUNBUFFERED=1
+
+# llama.cpp server defaults. Compose/.env may override.
+ENV LLAMA_ARG_ALIAS=local-qwen36-35b-q4-llamacpp
+ENV LLAMA_ARG_MODEL=/workspace/models/Qwen3.6-35B-A3B-UD-Q4_K_S.gguf
+ENV LLAMA_ARG_HOST=0.0.0.0
+ENV LLAMA_ARG_PORT=8000
+ENV LLAMA_ARG_DEVICE=ROCm0
+
+# First-test limits.
+ENV LLAMA_ARG_CTX_SIZE=4096
+ENV LLAMA_ARG_N_GPU_LAYERS=auto
+ENV LLAMA_ARG_CPU_MOE=false
+ENV LLAMA_ARG_N_CPU_MOE=0
+
+# KV cache / attention defaults.
+ENV LLAMA_ARG_CACHE_TYPE_K=q4_0
+ENV LLAMA_ARG_CACHE_TYPE_V=q4_0
+ENV LLAMA_ARG_FLASH_ATTN=auto
+ENV LLAMA_ARG_REASONING=off
+
+# Batching / CPU helper defaults.
+ENV LLAMA_ARG_BATCH_SIZE=512
+ENV LLAMA_ARG_UBATCH_SIZE=256
+ENV LLAMA_ARG_THREADS=8
+ENV LLAMA_ARG_THREADS_BATCH=16
+ENV LLAMA_ARG_N_PARALLEL=1
+
+# FOLLOW-UP:
+#   Fit/reserve controls are not enabled until the selected build proves the
+#   actual flag names and semantics:
+#     LLAMA_ARG_FIT=on
+#     LLAMA_ARG_FIT_TARGET=2048
+#
+# FOLLOW-UP:
+#   Throughput tuning variables belong in .env after baseline boot:
+#     HSA_OVERRIDE_GFX_VERSION
+#     GPU_MAX_HW_QUEUES
+#     ROCBLAS_USE_HIPBLASLT
+#     GGML_CUDA_FORCE_MMQ
+#     GGML_CUDA_FORCE_CUBLAS
+#   Do not add before device/runtime proof.
+
+WORKDIR /app
+
+# ----------------------------------------------------------------------
+# 14. RUNTIME SYSTEM DEPENDENCIES
+# ----------------------------------------------------------------------
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    libcurl4 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ----------------------------------------------------------------------
+# 15. INSTALL llama.cpp RUNTIME ARTIFACTS
+# ----------------------------------------------------------------------
+COPY --from=builder /opt/llama-prefix/ /usr/local/
+
+# ----------------------------------------------------------------------
+# 15.1 REGISTER llama.cpp RUNTIME LIBRARIES
+# ----------------------------------------------------------------------
+RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/llama-prefix.conf && \
+    ldconfig && \
+    echo "===== Runtime llama.cpp shared libraries =====" && \
+    find /usr/local/lib -maxdepth 1 \( -type f -o -type l \) -name "*.so*" -print | sort | sed -n '1,240p'
+# ----------------------------------------------------------------------
+# 16. POST-INSTALL VALIDATION
+# ----------------------------------------------------------------------
+# Build-independent runtime validation.
+# Live GPU visibility still belongs to compose/smoke checks.
+#
+# llama-server reads LLAMA_ARG_* environment variables even for --version/--help.
+# Unset runtime launch arguments during image-build validation because Docker
+# build does not expose the runtime GPU device nodes.
+#
+# Capture stdout and stderr because CLI help output may be written to either stream.
+RUN echo "===== Installed llama.cpp runtime =====" && \
+    command -v llama-server && \
+    command -v llama-cli && \
+    command -v llama-bench && \
+    ldd "$(command -v llama-server)" | tee /tmp/llama-server-runtime-ldd.txt && \
+    ! grep -q "not found" /tmp/llama-server-runtime-ldd.txt && \
+    unset \
+      LLAMA_ARG_MODEL \
+      LLAMA_ARG_ALIAS \
+      LLAMA_ARG_HOST \
+      LLAMA_ARG_PORT \
+      LLAMA_ARG_DEVICE \
+      LLAMA_ARG_CTX_SIZE \
+      LLAMA_ARG_N_GPU_LAYERS \
+      LLAMA_ARG_CPU_MOE \
+      LLAMA_ARG_N_CPU_MOE \
+      LLAMA_ARG_CACHE_TYPE_K \
+      LLAMA_ARG_CACHE_TYPE_V \
+      LLAMA_ARG_FLASH_ATTN \
+      LLAMA_ARG_BATCH_SIZE \
+      LLAMA_ARG_UBATCH_SIZE \
+      LLAMA_ARG_THREADS \
+      LLAMA_ARG_THREADS_BATCH \
+      LLAMA_ARG_N_PARALLEL && \
+    llama-server --version && \
+    llama-server --help > /tmp/llama-server-help.txt 2>&1 && \
+    for flag in \
+      "--model" \
+      "--alias" \
+      "--host" \
+      "--port" \
+      "--device" \
+      "--ctx-size" \
+      "--n-gpu-layers" \
+      "--cpu-moe" \
+      "--n-cpu-moe" \
+      "--cache-type-k" \
+      "--cache-type-v" \
+      "--flash-attn" \
+      "--batch-size" \
+      "--ubatch-size" \
+      "--threads" \
+      "--threads-batch" \
+      "--parallel" ; do \
+        grep -q -- "${flag}" /tmp/llama-server-help.txt || { echo "ERROR: missing llama-server flag ${flag}"; exit 1; }; \
+      done && \
+    echo "✓ llama.cpp runtime flag contract satisfied" && \
+    echo "===== ROCm runtime user-space =====" && \
+    (cat /opt/rocm/.info/version || true) && \
+    find /opt/rocm -maxdepth 3 -type f \( \
+      -name "libamdhip64.so*" -o \
+      -name "librocblas.so*" -o \
+      -name "libhipblas.so*" \
+    \) -print | sort | sed -n '1,120p'
+# ----------------------------------------------------------------------
+# 17. SERVICE FILES
+# ----------------------------------------------------------------------
+COPY scripts/ /app/scripts/
+RUN chmod +x /app/scripts/*.sh
+
+# ----------------------------------------------------------------------
+# 18. NETWORK CONTRACT
+# ----------------------------------------------------------------------
+EXPOSE 8000
+
+# ----------------------------------------------------------------------
+# 19. ENTRYPOINT
+# ----------------------------------------------------------------------
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]

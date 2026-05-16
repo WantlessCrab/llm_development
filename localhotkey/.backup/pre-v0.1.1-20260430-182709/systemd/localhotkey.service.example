@@ -1,0 +1,17 @@
+[Unit]
+Description=localhotkey sxhkd user-session hotkey backend
+Documentation=file:%h/.local/share/localhotkey/README.md
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
+Environment=LOCALHOTKEY_EXECUTABLE=%h/.local/bin/localhotkey
+ExecStart=/usr/bin/sxhkd -c %h/.config/localhotkey/generated.sxhkdrc
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

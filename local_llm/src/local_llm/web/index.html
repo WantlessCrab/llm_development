@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>local_llm</title>
+  <style>
+    :root {
+      --bg: #111217;
+      --panel: #1a1c24;
+      --panel-2: #222532;
+      --text: #f2edf4;
+      --muted: #bdb2c8;
+      --muted-2: #8f839a;
+      --border: #3a3445;
+      --accent: #d69ac2;
+      --accent-2: #a99be0;
+      --ok: #b7d99f;
+      --warn: #f0cf8a;
+      --bad: #ee91a2;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 15% 0%, rgba(214,154,194,.16), transparent 32rem), var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .app { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
+    aside { border-right: 1px solid var(--border); background: rgba(26,28,36,.88); padding: 16px; overflow: auto; }
+    main { padding: 18px; overflow: auto; }
+    h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -.04em; }
+    h2 { margin: 0 0 10px; font-size: 18px; }
+    h3 { margin: 0 0 8px; font-size: 15px; color: var(--accent); }
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+    .card { background: rgba(34,37,50,.72); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: 0 14px 38px rgba(0,0,0,.22); }
+    .stack { display: grid; gap: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .grid { display: grid; gap: 14px; }
+    .grid.two { grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr); align-items: start; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input, select, textarea {
+      width: 100%; border: 1px solid var(--border); background: #0d0e13; color: var(--text); border-radius: 12px; padding: 9px 10px; outline: none;
+    }
+    textarea { min-height: 170px; resize: vertical; line-height: 1.4; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(214,154,194,.13); }
+    .button { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 8px 12px; }
+    .button:hover { border-color: var(--accent); }
+    .button.primary { background: linear-gradient(135deg, rgba(214,154,194,.30), rgba(169,155,224,.20)); border-color: var(--accent); }
+    .button:disabled { opacity: .55; cursor: not-allowed; }
+    .pill { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 3px 8px; color: var(--muted); font-size: 11px; background: #101118; }
+    .pill.ok { color: var(--ok); border-color: rgba(183,217,159,.5); }
+    .pill.warn { color: var(--warn); border-color: rgba(240,207,138,.5); }
+    .pill.bad { color: var(--bad); border-color: rgba(238,145,162,.5); }
+    .session-list { display: grid; gap: 8px; margin-top: 10px; }
+    .session { border: 1px solid var(--border); background: #141620; border-radius: 12px; padding: 10px; text-align: left; color: var(--text); }
+    .session.active { border-color: var(--accent); background: rgba(214,154,194,.12); }
+    .session-title { font-weight: 800; overflow-wrap: anywhere; }
+    .session-meta { margin-top: 4px; color: var(--muted-2); font-family: var(--mono); font-size: 11px; overflow-wrap: anywhere; }
+    .tabs { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+    .tab { border: 1px solid var(--border); color: var(--muted); background: #141620; border-radius: 999px; padding: 8px 12px; }
+    .tab.active { color: var(--text); border-color: var(--accent); background: rgba(214,154,194,.12); }
+    .view { display: none; }
+    .view.active { display: block; }
+    .status { min-height: 22px; color: var(--muted); font-size: 13px; margin: 10px 0; }
+    .response { white-space: pre-wrap; line-height: 1.45; background: #0d0e13; border: 1px solid var(--border); border-radius: 14px; padding: 14px; min-height: 180px; }
+    .pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; background: #0d0e13; border: 1px solid var(--border); border-radius: 14px; padding: 12px; max-height: 520px; overflow: auto; }
+    .sources { display: grid; gap: 8px; }
+    .source { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: #11131b; }
+    .source-path { color: var(--accent); font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+    .source-text { margin-top: 8px; color: var(--muted); font-family: var(--mono); font-size: 11px; white-space: pre-wrap; max-height: 180px; overflow: auto; }
+    .history { display: grid; gap: 8px; }
+    .run-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: #11131b; }
+    .run-row button { align-self: start; }
+    .muted { color: var(--muted); }
+    .mono { font-family: var(--mono); }
+    .small { font-size: 12px; }
+    @media (max-width: 1050px) { .app { grid-template-columns: 1fr; } aside { border-right: none; border-bottom: 1px solid var(--border); } .grid.two { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>local_llm</h1>
+    <div class="subtitle">Session-aware run console. Turns are stored; chat memory is not automatically injected.</div>
+    <div class="card stack">
+      <h3>New session</h3>
+      <label>Title <input id="newTitle" value="Local model session" /></label>
+      <label>Description <input id="newDescription" placeholder="optional" /></label>
+      <label>Default workflow <select id="newWorkflow"></select></label>
+      <button class="button primary" id="createSession">Create session</button>
+    </div>
+    <div class="status" id="sideStatus"></div>
+    <div class="row">
+      <button class="button" id="refreshSessions">Refresh</button>
+      <button class="button" id="archiveSession">Archive selected</button>
+    </div>
+    <div class="session-list" id="sessions"></div>
+  </aside>
+  <main>
+    <div class="tabs">
+      <button class="tab active" data-view="run">Run</button>
+      <button class="tab" data-view="history">History</button>
+      <button class="tab" data-view="inspect">Inspect</button>
+    </div>
+
+    <section id="view-run" class="view active">
+      <div class="grid two">
+        <div class="card stack">
+          <h2>Run in selected session</h2>
+          <div class="row">
+            <span class="pill" id="selectedSessionPill">No session selected</span>
+            <span class="pill" id="workflowPill">workflow</span>
+          </div>
+          <label>Workflow <select id="workflowSelect"></select></label>
+          <label>Input <textarea id="inputText" placeholder="Ask a source-grounded question..."></textarea></label>
+          <div class="row">
+            <button class="button primary" id="runButton">Run</button>
+            <button class="button" id="searchButton">Search only</button>
+          </div>
+          <div class="status" id="runStatus"></div>
+          <h3>Response</h3>
+          <div class="response" id="responseText">Run output will appear here.</div>
+        </div>
+        <div class="card stack">
+          <h2>Evidence</h2>
+          <div class="row" id="supportPills"></div>
+          <h3>Warnings</h3>
+          <div id="warnings" class="pre">[]</div>
+          <h3>Retrieved sources</h3>
+          <div class="sources" id="sources"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-history" class="view">
+      <div class="card stack">
+        <div class="row"><h2 style="margin-right:auto">Recent runs</h2><button class="button" id="refreshRuns">Refresh</button></div>
+        <div class="history" id="runs"></div>
+      </div>
+    </section>
+
+    <section id="view-inspect" class="view">
+      <div class="card stack">
+        <h2>Inspect run</h2>
+        <label>Run ID <input id="inspectRunId" placeholder="run uuid" /></label>
+        <div class="row">
+          <button class="button primary" id="inspectButton">Inspect</button>
+          <button class="button" data-artifact="prompt">Prompt</button>
+          <button class="button" data-artifact="context">Context</button>
+          <button class="button" data-artifact="provider_raw_response">Provider raw</button>
+          <button class="button" data-artifact="diagnostics">Diagnostics</button>
+        </div>
+        <div class="status" id="inspectStatus"></div>
+        <h3>Run detail</h3>
+        <div class="pre" id="inspectOutput">Select a run from History or paste a run_id.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const state = { config: null, sessions: [], selectedSessionId: null, latestRunId: null };
+const $ = (id) => document.getElementById(id);
+
+function esc(v) { return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
+function short(v, n=12) { const s = String(v || ''); return s.length > n*2 ? `${s.slice(0,n)}…${s.slice(-n)}` : s; }
+async function api(path, opts={}) {
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`);
+  return res.json();
+}
+function jsonBlock(value) { return JSON.stringify(value ?? null, null, 2); }
+
+function setView(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $(`view-${name}`).classList.add('active');
+}
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => setView(t.dataset.view));
+
+async function loadConfig() {
+  state.config = await api('/api/v1/config/summary');
+  const workflows = state.config.workflows || [];
+  for (const id of ['newWorkflow', 'workflowSelect']) {
+    const el = $(id);
+    el.innerHTML = '';
+    for (const wf of workflows) {
+      const opt = document.createElement('option'); opt.value = wf; opt.textContent = wf; el.appendChild(opt);
+    }
+  }
+}
+
+async function loadSessions() {
+  state.sessions = await api('/api/v1/sessions');
+  if (!state.selectedSessionId && state.sessions.length) state.selectedSessionId = state.sessions[0].session_id;
+  renderSessions();
+}
+
+function selectedSession() { return state.sessions.find(s => s.session_id === state.selectedSessionId) || null; }
+function renderSessions() {
+  const box = $('sessions'); box.innerHTML = '';
+  for (const s of state.sessions) {
+    const btn = document.createElement('button');
+    btn.className = 'session' + (s.session_id === state.selectedSessionId ? ' active' : '');
+    btn.innerHTML = `<div class="session-title">${esc(s.title)}</div><div class="session-meta">${esc(short(s.session_id,8))}<br>${esc(s.default_workflow_id)} · ${s.turn_count} turns</div>`;
+    btn.onclick = () => { state.selectedSessionId = s.session_id; renderSessions(); loadTurns(); };
+    box.appendChild(btn);
+  }
+  const s = selectedSession();
+  $('selectedSessionPill').textContent = s ? `${s.title} · ${short(s.session_id,8)}` : 'No session selected';
+  $('workflowPill').textContent = s ? s.default_workflow_id : 'workflow';
+  if (s) $('workflowSelect').value = s.default_workflow_id;
+}
+
+async function createSession() {
+  $('sideStatus').textContent = 'Creating session...';
+  const data = await api('/api/v1/sessions', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ title: $('newTitle').value, description: $('newDescription').value, default_workflow_id: $('newWorkflow').value, metadata: {source:'ui'} })
+  });
+  state.selectedSessionId = data.session_id;
+  $('sideStatus').textContent = 'Session created.';
+  await loadSessions();
+}
+
+async function archiveSession() {
+  if (!state.selectedSessionId) return;
+  await api(`/api/v1/sessions/${state.selectedSessionId}/archive`, {method:'POST'});
+  state.selectedSessionId = null;
+  await loadSessions();
+}
+
+function renderSupport(support) {
+  const box = $('supportPills'); box.innerHTML = '';
+  for (const [k,v] of Object.entries(support || {})) {
+    const span = document.createElement('span'); span.className = 'pill ok'; span.textContent = `${k}: ${v}`; box.appendChild(span);
+  }
+}
+function renderSources(retrievals) {
+  const box = $('sources'); box.innerHTML = '';
+  for (const r of retrievals || []) {
+    const div = document.createElement('div'); div.className = 'source';
+    div.innerHTML = `<div class="source-path">#${r.rank} ${esc(r.document_path)}</div><div class="small muted mono">chunk ${esc(short(r.chunk_id,8))} · score ${esc(r.score)}</div><div class="source-text">${esc(r.text || r.chunk_text_snapshot || '')}</div>`;
+    box.appendChild(div);
+  }
+}
+
+async function runTurn() {
+  const s = selectedSession();
+  if (!s) { $('runStatus').textContent = 'Create or select a session first.'; return; }
+  const input = $('inputText').value.trim();
+  if (!input) { $('runStatus').textContent = 'Enter an input.'; return; }
+  $('runButton').disabled = true; $('runStatus').textContent = 'Running...';
+  try {
+    const data = await api(`/api/v1/sessions/${s.session_id}/turns`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({input, workflow_id: $('workflowSelect').value, metadata:{source:'ui'}})
+    });
+    state.latestRunId = data.run_id;
+    $('responseText').textContent = data.response.response_text || '';
+    $('warnings').textContent = jsonBlock(data.response.warnings || []);
+    renderSupport(data.response.support || {});
+    renderSources(data.response.retrievals || []);
+    $('runStatus').textContent = `Run complete: ${data.run_id}`;
+    $('inspectRunId').value = data.run_id;
+    await loadSessions(); await loadRuns();
+  } catch (err) { $('runStatus').textContent = `Error: ${err.message}`; }
+  finally { $('runButton').disabled = false; }
+}
+
+async function searchOnly() {
+  const input = $('inputText').value.trim();
+  if (!input) return;
+  $('runStatus').textContent = 'Searching...';
+  const data = await api('/api/v1/search', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({rag_profile:'project_basic', query: input, top_k: 8})});
+  $('responseText').textContent = 'Search only. No model call was made.';
+  $('warnings').textContent = jsonBlock(data.warnings || []);
+  renderSupport({retrieval_used: data.results.length > 0, chunk_count: data.results.length});
+  renderSources(data.results || []);
+  $('runStatus').textContent = `Search complete: ${data.results.length} results.`;
+}
+
+async function loadTurns() {
+  if (!state.selectedSessionId) return;
+  // Turns are stored now for future chat behavior; current UI displays them through History/Inspect.
+}
+
+async function loadRuns() {
+  const data = await api('/api/v1/runs?limit=50');
+  const box = $('runs'); box.innerHTML = '';
+  for (const r of data.runs || []) {
+    const row = document.createElement('div'); row.className = 'run-row';
+    const warnCount = (r.warnings || []).length;
+    row.innerHTML = `<div><div><strong>${esc(r.workflow_id)}</strong> <span class="pill ${warnCount ? 'warn':'ok'}">warnings ${warnCount}</span></div><div class="small muted">${esc(r.created_at)} · ${esc(r.model_profile)} · ${esc(r.latency_ms)}ms</div><div class="small">${esc(r.user_input)}</div><div class="small muted">${esc(r.response_preview || '')}</div></div>`;
+    const b = document.createElement('button'); b.className = 'button'; b.textContent = 'Inspect'; b.onclick = () => inspectRun(r.run_id);
+    row.appendChild(b); box.appendChild(row);
+  }
+}
+
+async function inspectRun(runId) {
+  if (runId) $('inspectRunId').value = runId;
+  const id = $('inspectRunId').value.trim();
+  if (!id) return;
+  $('inspectStatus').textContent = 'Loading run...';
+  const data = await api(`/api/v1/runs/${id}`);
+  $('inspectOutput').textContent = jsonBlock(data);
+  $('inspectStatus').textContent = `Loaded ${id}`;
+  setView('inspect');
+}
+async function inspectArtifact(type) {
+  const id = $('inspectRunId').value.trim();
+  if (!id) return;
+  const path = type === 'prompt' ? 'prompt' : type === 'context' ? 'context' : `artifacts/${type}`;
+  const data = await api(`/api/v1/runs/${id}/${path}`);
+  $('inspectOutput').textContent = data.prompt || data.context || data.text || jsonBlock(data);
+  $('inspectStatus').textContent = `Loaded ${type}`;
+}
+
+$('createSession').onclick = () => createSession().catch(e => $('sideStatus').textContent = e.message);
+$('refreshSessions').onclick = () => loadSessions().catch(e => $('sideStatus').textContent = e.message);
+$('archiveSession').onclick = () => archiveSession().catch(e => $('sideStatus').textContent = e.message);
+$('runButton').onclick = runTurn;
+$('searchButton').onclick = searchOnly;
+$('refreshRuns').onclick = loadRuns;
+$('inspectButton').onclick = () => inspectRun();
+document.querySelectorAll('[data-artifact]').forEach(b => b.onclick = () => inspectArtifact(b.dataset.artifact));
+
+(async function init(){
+  try {
+    await loadConfig();
+    await loadSessions();
+    await loadRuns();
+    if (!state.sessions.length) await createSession();
+  } catch (err) {
+    $('runStatus').textContent = err.message;
+    $('sideStatus').textContent = err.message;
+  }
+})();
+</script>
+</body>
+</html>

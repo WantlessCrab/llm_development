@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=localhotkey
+Comment=Start localhotkey sxhkd hotkey backend
+Exec=sxhkd -c /home/wantless/.config/localhotkey/generated.sxhkdrc
+Terminal=false
+X-GNOME-Autostart-enabled=true
