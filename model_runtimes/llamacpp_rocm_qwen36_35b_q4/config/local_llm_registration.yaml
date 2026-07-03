@@ -17,9 +17,10 @@ model_profiles:
     api_key: "not-needed"
     model: "local-qwen36-35b-q4-llamacpp"
     context_window: 4096
+    runtime_root: "/home/wantless/PycharmProjects/automation/model_runtimes/llamacpp_rocm_qwen36_35b_q4"
     defaults:
       temperature: 0.2
-      max_tokens: 384
+      max_tokens: 768
 
 workflows:
   qwen36_35b_q4_llamacpp_rag_answer:

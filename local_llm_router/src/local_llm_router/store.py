@@ -387,6 +387,13 @@ class Store:
         )
 
         for column, definition in {
+            "label_source": "TEXT",
+            "label_updated_at": "TEXT",
+        }.items():
+            self._add_column_if_missing(db, table="session_queue_groups", column=column,
+                                        definition=definition)
+
+        for column, definition in {
             "queue_group_id": "TEXT NOT NULL DEFAULT 'default'",
             "cancelled_at": "TEXT",
         }.items():
@@ -468,7 +475,7 @@ class Store:
                 """
                 SELECT queue_group_id, name, status, is_default, created_at, updated_at
                 FROM queue_groups
-                WHERE status='active'
+                WHERE status = 'active'
                 ORDER BY is_default DESC, created_at ASC
                 """
             ).fetchall()
@@ -622,13 +629,22 @@ class Store:
             if row:
                 return self._queue_group_item_from_row(row)
 
+            clean_label = " ".join((label or "").strip().split()) or None
             db.execute(
                 """
-                INSERT OR REPLACE INTO session_queue_groups
-                (source_session_id, provider, label, queue_group_id, assigned_at)
-                VALUES (?, ?, ?, 'default', ?)
+                INSERT INTO session_queue_groups
+                (source_session_id, provider, label, label_source, label_updated_at, queue_group_id,
+                 assigned_at)
+                VALUES (?, ?, ?, ?, ?, 'default', ?)
                 """,
-                (source_session_id, provider, label, now),
+                (
+                    source_session_id,
+                    provider,
+                    clean_label,
+                    "daemon_existing" if clean_label else None,
+                    now if clean_label else None,
+                    now,
+                ),
             )
 
             return self._get_queue_group_with_db(db,
@@ -648,13 +664,36 @@ class Store:
             if not group:
                 return None
 
+            existing = db.execute(
+                """
+                SELECT label, label_source, label_updated_at
+                FROM session_queue_groups
+                WHERE source_session_id = ?
+                """,
+                (source_session_id,),
+            ).fetchone()
+
+            existing_label = str(existing["label"]) if existing and existing["label"] else None
+            existing_source = str(existing["label_source"]) if existing and existing[
+                "label_source"] else None
+            existing_updated = str(existing["label_updated_at"]) if existing and existing[
+                "label_updated_at"] else None
+            clean_label = " ".join((label or "").strip().split()) or None
+
+            # Group assignment must not overwrite a user-saved alias. If no durable label exists yet,
+            # preserve the caller's current inferred/daemon label as non-authoritative display metadata.
+            next_label = existing_label or clean_label
+            next_source = existing_source or ("daemon_existing" if clean_label else None)
+            next_updated = existing_updated or (now if clean_label else None)
+
             db.execute(
                 """
                 INSERT OR REPLACE INTO session_queue_groups
-                (source_session_id, provider, label, queue_group_id, assigned_at)
-                VALUES (?, ?, ?, ?, ?)
+                (source_session_id, provider, label, label_source, label_updated_at, queue_group_id, assigned_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (source_session_id, provider, label, queue_group_id, now),
+                (source_session_id, provider, next_label, next_source, next_updated, queue_group_id,
+                 now),
             )
 
             self._audit_with_db(
@@ -662,10 +701,65 @@ class Store:
                 "session.queue_group.assigned",
                 "session",
                 source_session_id,
-                {"queue_group_id": queue_group_id, "provider": provider, "label": label},
+                {"queue_group_id": queue_group_id, "provider": provider, "label": next_label,
+                 "label_source": next_source},
             )
 
             return group
+
+    def set_session_label(
+            self,
+            *,
+            source_session_id: str,
+            label: str,
+            provider: str | None = None,
+            label_source: str = "user_saved",
+    ) -> tuple[QueueGroupItem, str, str, str]:
+        clean_label = " ".join((label or "").strip().split())
+        if not clean_label:
+            raise ValueError("session label must not be blank")
+
+        safe_source = label_source if label_source == "user_saved" else "user_saved"
+        now = utc_now()
+
+        with connect(self.db_path) as db:
+            existing = db.execute(
+                "SELECT queue_group_id, provider FROM session_queue_groups WHERE source_session_id = ?",
+                (source_session_id,),
+            ).fetchone()
+
+            queue_group_id = (str(existing["queue_group_id"]) if existing and existing[
+                "queue_group_id"] else DEFAULT_QUEUE_GROUP_ID)
+            existing_provider = (
+                str(existing["provider"]) if existing and existing["provider"] else None)
+            final_provider = provider or existing_provider
+
+            if not self._get_queue_group_with_db(db, queue_group_id):
+                queue_group_id = DEFAULT_QUEUE_GROUP_ID
+
+            db.execute(
+                """
+                INSERT OR REPLACE INTO session_queue_groups
+                (source_session_id, provider, label, label_source, label_updated_at, queue_group_id, assigned_at)
+                VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT assigned_at FROM session_queue_groups WHERE source_session_id = ?), ?))
+                """,
+                (source_session_id, final_provider, clean_label, safe_source, now, queue_group_id,
+                 source_session_id, now),
+            )
+
+            group = self._get_queue_group_with_db(db,
+                                                  queue_group_id) or self._get_queue_group_with_db(
+                db, DEFAULT_QUEUE_GROUP_ID, active_only=False)
+            self._audit_with_db(
+                db,
+                "session.label.updated",
+                "session",
+                source_session_id,
+                {"label": clean_label, "label_source": safe_source, "provider": final_provider,
+                 "queue_group_id": queue_group_id},
+            )
+
+        return group, clean_label, safe_source, now  # type: ignore[return-value]
 
     def upsert_session(self, event: CaptureEvent) -> str:
         session_id = event.source_session_id or self.build_session_id(event)
@@ -806,6 +900,7 @@ class Store:
             wrapped_body: str,
             wrapped_format_capture: FormatCapture | None = None,
             queue_group_id: str = DEFAULT_QUEUE_GROUP_ID,
+            metadata: dict[str, Any] | None = None,
     ) -> str:
         delivery_id = str(uuid.uuid4())
         now = utc_now()
@@ -814,6 +909,7 @@ class Store:
             wrapped_format_capture = FormatCapture.from_legacy_text(wrapped_body)
 
         wrapped_format_capture = wrapped_format_capture.normalized()
+        delivery_metadata = metadata or {}
         wrapped_json = _json_dumps(model_to_dict(wrapped_format_capture))
         diagnostics_json = _json_dumps(model_to_dict(wrapped_format_capture.diagnostics))
 
@@ -828,7 +924,7 @@ class Store:
                  wrapped_body, wrapped_body_markdown, wrapped_body_plain, wrapped_body_html,
                  wrapped_format_capture_json, format_version, format_diagnostics_json,
                  attempt_count, queued_at, metadata_json)
-                VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, 0, ?, '{}')
+                VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
                 """,
                 (
                     delivery_id,
@@ -845,6 +941,7 @@ class Store:
                     wrapped_format_capture.format_version,
                     diagnostics_json,
                     now,
+                    _json_dumps(delivery_metadata),
                 ),
             )
 
@@ -858,6 +955,7 @@ class Store:
                     "route_id": route_id,
                     "queue_group_id": queue_group_id,
                     "format_version": wrapped_format_capture.format_version,
+                    "metadata": delivery_metadata,
                 },
             )
 
@@ -878,7 +976,7 @@ class Store:
                       d.acknowledged_at, \
                       d.cancelled_at, \
                       d.error, \
-
+ \
                       COALESCE(d.wrapped_body_markdown, d.wrapped_body) AS wrapped_body, \
                       d.wrapped_body_markdown, \
                       d.wrapped_body_plain, \
@@ -886,7 +984,8 @@ class Store:
                       d.wrapped_format_capture_json, \
                       d.format_version, \
                       d.format_diagnostics_json, \
-
+                      d.metadata_json, \
+ \
                       m.provider, \
                       m.source_session_id, \
                       m.conversation_id, \
@@ -916,8 +1015,10 @@ class Store:
         format_capture_json = _json_loads_dict(data.pop("format_capture_json", None))
         wrapped_json = _json_loads_dict(data.pop("wrapped_format_capture_json", None))
         diagnostics = _json_loads_dict(data.pop("format_diagnostics_json", None))
+        metadata = _json_loads_dict(data.pop("metadata_json", None))
 
         data["format_diagnostics"] = diagnostics
+        data["metadata"] = metadata
 
         if format_capture_json:
             try:
@@ -1355,6 +1456,14 @@ class Store:
                 """
                 SELECT s.session_id                              AS source_session_id,
                        s.provider                                AS provider,
+                       sq.label                                  AS manual_alias,
+                       sq.label_source                           AS label_source,
+                       sq.label_updated_at                       AS label_updated_at,
+                       s.title                                   AS inferred_label,
+                       s.conversation_id                         AS conversation_id,
+                       s.gizmo_id                                AS gizmo_id,
+                       s.url                                     AS conversation_url,
+                       s.title                                   AS conversation_title,
                        COALESCE(sq.label, s.title, s.session_id) AS label,
                        COALESCE(sq.queue_group_id, 'default')    AS queue_group_id,
                        COALESCE(q.name, 'Default queue')         AS queue_group_name,
@@ -1373,6 +1482,17 @@ class Store:
                 source_session_id=str(row["source_session_id"]),
                 provider=row["provider"],
                 label=row["label"],
+                label_source=row["label_source"] or (
+                    "daemon_existing" if row["manual_alias"] else "chatgpt_inferred" if row[
+                        "inferred_label"] else "fallback"),
+                manual_alias=row["manual_alias"],
+                inferred_label=row["inferred_label"],
+                inferred_label_source="daemon_title" if row["inferred_label"] else None,
+                label_updated_at=row["label_updated_at"],
+                conversation_id=row["conversation_id"],
+                gizmo_id=row["gizmo_id"],
+                conversation_url=row["conversation_url"],
+                conversation_title=row["conversation_title"],
                 queue_group_id=row["queue_group_id"] or DEFAULT_QUEUE_GROUP_ID,
                 queue_group_name=row["queue_group_name"] or "Default queue",
                 assigned_at=row["assigned_at"],

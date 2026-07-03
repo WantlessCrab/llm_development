@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 from importlib.resources import files
-from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
@@ -11,80 +9,99 @@ from fastapi.responses import FileResponse, RedirectResponse
 from local_llm import __version__
 from local_llm.config import AppConfig, load_config
 from local_llm.contracts import (
+    ContentLoadResponse,
+    ExperimentRunMatrixRequest,
     CreateSessionRequest,
     CreateTurnRequest,
     DoctorResponse,
     HealthResponse,
     IngestResponse,
+    MetricAvailabilityResponse,
+    OperatorFeedbackRequest,
+    OperatorFeedbackResponse,
+    PacketDetailResponse,
+    PacketGroupResponse,
+    PacketListRequest,
+    PacketListResponse,
+    ProjectionRequest,
+    ProjectionResult,
+    ResolvedExperimentCondition,
+    ResolvedExperimentRunMatrixRequest,
     RespondRequest,
     RespondResponse,
-    RunDetailResponse,
     SearchRequest,
     SearchResponse,
+    SessionComparisonRequest,
     SessionResponse,
     SessionTurnResponse,
-    TurnResponse,
     UpdateSessionRequest,
 )
 from local_llm.diagnostics import run_doctor
+from local_llm.eval_capture.experiments import ExperimentRunMatrixPlanner
+from local_llm.eval_capture.groups import build_session_comparison_request
+from local_llm.eval_capture.operator_feedback import build_operator_feedback_facts
+from local_llm.eval_capture.projections import ProjectionService
 from local_llm.retrieval.indexer import ingest_corpus
 from local_llm.retrieval.retriever import search
-from local_llm.runs.inspector import show_context
-from local_llm.runs.runner import respond
 from local_llm.sessions.service import create_session, create_turn, update_session
-from local_llm.store.sqlite_store import SQLiteStore
+from local_llm.store.base import StoreProtocol
+from local_llm.store.factory import build_store
+from local_llm.turns.execution import TurnExecutionService
+from local_llm.turns.request import TurnExecutionRequest
 
 
-def _json_load(value: object, default: Any) -> Any:
-    if value is None:
-        return default
-    if isinstance(value, (dict, list)):
-        return value
-    try:
-        return json.loads(str(value))
-    except json.JSONDecodeError:
-        return default
-
-
-def _run_detail(store: SQLiteStore, run_id: str) -> RunDetailResponse:
-    run = store.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail=f"run not found: {run_id}")
-    run = dict(run)
-    run["support"] = _json_load(run.get("support_json"), {})
-    run["warnings"] = _json_load(run.get("warnings_json"), [])
-    run["metadata"] = _json_load(run.get("metadata_json"), {})
-    return RunDetailResponse(
-        run=run,
-        retrievals=store.get_run_retrievals(run_id),
-        artifacts=_artifacts_with_exists(store, run_id),
+def _resolve_experiment_condition(
+        *,
+        condition: Any,
+        role: Literal["baseline", "variable"],
+        cfg: AppConfig,
+) -> ResolvedExperimentCondition:
+    replicate_count = condition.replicate_count
+    if replicate_count is None:
+        replicate_count = cfg.training.experiment_default_replicates
+    if replicate_count > cfg.training.experiment_max_replicates_per_condition:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"replicate_count for {condition.label!r} exceeds "
+                "training.experiment_max_replicates_per_condition"
+            ),
+        )
+    return ResolvedExperimentCondition(
+        label=condition.label,
+        role=role,
+        config_overlay=condition.config_overlay,
+        replicate_count=replicate_count,
     )
 
 
-def _artifacts_with_exists(store: SQLiteStore, run_id: str) -> list[dict[str, Any]]:
-    artifacts: list[dict[str, Any]] = []
-    for item in store.get_run_artifacts(run_id):
-        item = dict(item)
-        path = Path(str(item["path"]))
-        item["exists"] = path.exists()
-        item["metadata"] = _json_load(item.get("metadata_json"), {})
-        artifacts.append(item)
-    return artifacts
-
-
-def _artifact_text(store: SQLiteStore, run_id: str, artifact_type: str) -> str:
-    for artifact in store.get_run_artifacts(run_id):
-        if artifact.get("artifact_type") == artifact_type:
-            path = Path(str(artifact["path"]))
-            if not path.exists():
-                raise HTTPException(status_code=404, detail=f"artifact file missing: {artifact_type}")
-            return path.read_text(encoding="utf-8")
-    raise HTTPException(status_code=404, detail=f"artifact not found: {artifact_type}")
+def _resolve_experiment_request(
+        request: ExperimentRunMatrixRequest,
+        cfg: AppConfig,
+) -> ResolvedExperimentRunMatrixRequest:
+    return ResolvedExperimentRunMatrixRequest(
+        workflow_id=request.workflow_id,
+        input=request.input,
+        baseline=_resolve_experiment_condition(condition=request.baseline, role="baseline",
+                                               cfg=cfg),
+        variables=[
+            _resolve_experiment_condition(condition=item, role="variable", cfg=cfg)
+            for item in request.variables
+        ],
+        capture_mode=request.capture_mode,
+        privacy_level=request.privacy_level,
+        operator_labels=request.operator_labels,
+        training_preferences={
+            "experiment_default_replicates": cfg.training.experiment_default_replicates,
+            "experiment_max_replicates_per_condition": cfg.training.experiment_max_replicates_per_condition,
+            "experiment_max_planned_packets": cfg.training.experiment_max_planned_packets,
+        },
+    )
 
 
 def create_app(config: AppConfig | None = None) -> FastAPI:
     cfg = config or load_config()
-    store = SQLiteStore(cfg.database_path)
+    store = build_store(cfg)
 
     app = FastAPI(title="local_llm", version=__version__)
 
@@ -108,7 +125,9 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             status="ok",
             app="local_llm",
             version=__version__,
-            database_path=str(cfg.database_path),
+            storage_backend=cfg.storage_backend,
+            database_label=cfg.database_label,
+            artifact_dir=str(cfg.artifact_dir),
             configured_models=sorted(cfg.model_profiles),
             configured_rag_profiles=sorted(cfg.rag_profiles),
             configured_workflows=sorted(cfg.workflows),
@@ -126,6 +145,11 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             "rag_profiles": sorted(cfg.rag_profiles),
             "prompt_profiles": sorted(cfg.prompt_profiles),
             "corpora": sorted(cfg.corpora),
+            "storage_backend": cfg.storage_backend,
+            "database_label": cfg.database_label,
+            "eval_capture": cfg.eval_capture.model_dump(),
+            "privacy": cfg.privacy.model_dump(),
+            "training": cfg.training.model_dump(),
         }
 
     @app.post("/api/v1/corpora/{corpus_id}/ingest", response_model=IngestResponse)
@@ -138,14 +162,29 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     @app.post("/api/v1/search", response_model=SearchResponse)
     def search_api(request: SearchRequest) -> SearchResponse:
         try:
-            return search(cfg, store, rag_profile_id=request.rag_profile, query=request.query, top_k=request.top_k)
+            return search(cfg, store, rag_profile_id=request.rag_profile, query=request.query,
+                          top_k=request.top_k)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/v1/respond", response_model=RespondResponse)
     async def respond_api(request: RespondRequest) -> RespondResponse:
         try:
-            return await respond(cfg, store, request)
+            turn_request = TurnExecutionRequest(
+                source_kind="respond",
+                workflow_id=request.workflow_id,
+                input=request.input,
+                metadata=request.metadata,
+                capture_mode=request.capture_mode or request.eval_capture_mode,
+                privacy_mode=request.privacy_mode,
+                privacy_level=request.privacy_level,
+                idempotency_key=request.idempotency_key,
+                idempotency_scope_hash=request.idempotency_scope_hash,
+                source_system="local_llm",
+            )
+            return await TurnExecutionService(cfg, store).respond(turn_request)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
@@ -153,7 +192,8 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
 
     @app.get("/api/v1/sessions", response_model=list[SessionResponse])
     def list_sessions(include_archived: bool = False) -> list[SessionResponse]:
-        return [SessionResponse(**row) for row in store.list_sessions(include_archived=include_archived)]
+        return [SessionResponse(**row) for row in
+                store.list_sessions(include_archived=include_archived)]
 
     @app.post("/api/v1/sessions", response_model=SessionResponse)
     def create_session_api(request: CreateSessionRequest) -> SessionResponse:
@@ -177,6 +217,8 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             return update_session(cfg, store, session_id, request)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/v1/sessions/{session_id}/archive", response_model=SessionResponse)
     def archive_session_api(session_id: str) -> SessionResponse:
@@ -185,11 +227,11 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"session not found: {session_id}")
         return SessionResponse(**row)
 
-    @app.get("/api/v1/sessions/{session_id}/turns", response_model=list[TurnResponse])
-    def list_turns_api(session_id: str) -> list[TurnResponse]:
+    @app.get("/api/v1/sessions/{session_id}/turns", response_model=PacketListResponse)
+    def list_turns_api(session_id: str) -> PacketListResponse:
         if not store.get_session(session_id):
             raise HTTPException(status_code=404, detail=f"session not found: {session_id}")
-        return [TurnResponse(**row) for row in store.list_turns(session_id)]
+        return store.list_turn_packets(PacketListRequest(session_id=session_id, limit=500))
 
     @app.post("/api/v1/sessions/{session_id}/turns", response_model=SessionTurnResponse)
     async def create_turn_api(session_id: str, request: CreateTurnRequest) -> SessionTurnResponse:
@@ -200,49 +242,123 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    @app.get("/api/v1/runs")
-    def list_runs(limit: int = 50) -> dict[str, object]:
-        limit = max(1, min(limit, 200))
-        return {"runs": store.list_runs(limit=limit)}
+    @app.get("/api/v1/packets", response_model=PacketListResponse)
+    def list_packets(
+            session_id: str | None = None,
+            workflow_id: str | None = None,
+            group_id: str | None = None,
+            capture_mode: str | None = None,
+            limit: int = 50,
+    ) -> PacketListResponse:
+        return store.list_turn_packets(
+            PacketListRequest(
+                session_id=session_id,
+                workflow_id=workflow_id,
+                group_id=group_id,
+                capture_mode=capture_mode,  # type: ignore[arg-type]
+                limit=limit,
+            )
+        )
 
-    @app.get("/api/v1/runs/{run_id}", response_model=RunDetailResponse)
-    def get_run_api(run_id: str) -> RunDetailResponse:
-        return _run_detail(store, run_id)
+    @app.get("/api/v1/packets/{turn_packet_id}", response_model=PacketDetailResponse)
+    def packet_detail(turn_packet_id: str) -> PacketDetailResponse:
+        result = ProjectionService(store).packet_detail(turn_packet_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"packet not found: {turn_packet_id}")
+        return result
 
-    @app.get("/api/v1/runs/{run_id}/retrievals")
-    def get_run_retrievals_api(run_id: str) -> dict[str, object]:
-        if not store.get_run(run_id):
-            raise HTTPException(status_code=404, detail=f"run not found: {run_id}")
-        return {"run_id": run_id, "retrievals": store.get_run_retrievals(run_id)}
+    @app.post("/api/v1/packets/{turn_packet_id}/operator-feedback",
+              response_model=OperatorFeedbackResponse)
+    def operator_feedback(turn_packet_id: str,
+                          request: OperatorFeedbackRequest) -> OperatorFeedbackResponse:
+        if not store.get_turn_packet_summary(turn_packet_id):
+            raise HTTPException(status_code=404, detail=f"packet not found: {turn_packet_id}")
+        try:
+            facts = build_operator_feedback_facts(
+                turn_packet_id=turn_packet_id,
+                request=request,
+                training=cfg.training,
+            )
+            inserted = store.append_turn_metric_facts(facts)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return OperatorFeedbackResponse(turn_packet_id=turn_packet_id, metric_facts=inserted)
 
-    @app.get("/api/v1/runs/{run_id}/artifacts")
-    def get_run_artifacts_api(run_id: str) -> dict[str, object]:
-        if not store.get_run(run_id):
-            raise HTTPException(status_code=404, detail=f"run not found: {run_id}")
-        return {"run_id": run_id, "artifacts": _artifacts_with_exists(store, run_id)}
+    @app.get("/api/v1/content/{content_ref_id}", response_model=ContentLoadResponse)
+    def content(content_ref_id: str) -> ContentLoadResponse:
+        result = ProjectionService(store).load_content(content_ref_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"content_ref not found: {content_ref_id}")
+        return result
 
-    @app.get("/api/v1/runs/{run_id}/prompt")
-    def get_run_prompt_api(run_id: str) -> dict[str, object]:
-        run = store.get_run(run_id)
-        if not run:
-            raise HTTPException(status_code=404, detail=f"run not found: {run_id}")
-        return {"run_id": run_id, "prompt": str(run["final_prompt"])}
+    @app.get("/api/v1/metrics", response_model=MetricAvailabilityResponse)
+    def metrics() -> MetricAvailabilityResponse:
+        return ProjectionService(store).available_metrics()
 
-    @app.get("/api/v1/runs/{run_id}/context")
-    def get_run_context_api(run_id: str) -> dict[str, object]:
-        if not store.get_run(run_id):
-            raise HTTPException(status_code=404, detail=f"run not found: {run_id}")
-        return {"run_id": run_id, "context": show_context(store, run_id)}
+    @app.get("/api/v1/groups/{packet_group_id}")
+    def group_detail(packet_group_id: str) -> dict[str, Any]:
+        result = ProjectionService(store).group_detail(packet_group_id)
+        if not result:
+            raise HTTPException(status_code=404,
+                                detail=f"packet group not found: {packet_group_id}")
+        return result
 
-    @app.get("/api/v1/runs/{run_id}/artifacts/{artifact_type}")
-    def get_run_artifact_text_api(run_id: str, artifact_type: str) -> dict[str, object]:
-        if not store.get_run(run_id):
-            raise HTTPException(status_code=404, detail=f"run not found: {run_id}")
-        return {"run_id": run_id, "artifact_type": artifact_type, "text": _artifact_text(store, run_id, artifact_type)}
+    @app.post("/api/v1/projection", response_model=ProjectionResult)
+    def projection(request: ProjectionRequest) -> ProjectionResult:
+        return ProjectionService(store).projection_result(request)
+
+    @app.get("/api/v1/groups/{packet_group_id}/projection", response_model=ProjectionResult)
+    def group_projection(packet_group_id: str) -> ProjectionResult:
+        return ProjectionService(store).group_comparison(packet_group_id)
+
+    @app.post("/api/v1/experiments/run-matrix")
+    async def experiment_run_matrix(request: ExperimentRunMatrixRequest) -> dict[str, Any]:
+        resolved = _resolve_experiment_request(request, cfg)
+        planned_count = resolved.baseline.replicate_count + sum(
+            item.replicate_count for item in resolved.variables)
+        if planned_count < 1:
+            raise HTTPException(status_code=422,
+                                detail="experiment run matrix must include at least one replicate")
+        if planned_count > cfg.training.experiment_max_planned_packets:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "experiment run matrix is too large for synchronous execution; "
+                    "reduce replicate count or training.experiment_max_planned_packets"
+                ),
+            )
+        planner = ExperimentRunMatrixPlanner()
+        plan = planner.plan(store, resolved)
+        service = TurnExecutionService(cfg, store)
+        packets = [await service.execute(TurnExecutionRequest(**item)) for item in plan.requests]
+        projection = ProjectionService(store).group_comparison(
+            plan.experiment_group.packet_group_id)
+        return {
+            "planned_packet_count": planned_count,
+            "completed_packet_count": sum(1 for packet in packets if packet.ok),
+            "failed_packet_count": sum(1 for packet in packets if not packet.ok),
+            "plan": plan.model_dump(),
+            "packets": [packet.model_dump() for packet in packets],
+            "projection": projection.model_dump(),
+        }
+
+    @app.post("/api/v1/analysis/compare-sessions", response_model=ProjectionResult)
+    def compare_sessions(request: SessionComparisonRequest) -> ProjectionResult:
+        return ProjectionService(store).projection_result(
+            build_session_comparison_request(request.session_ids, request.metric_keys))
 
     @app.get("/api/v1/admin/summary")
     def summary() -> dict[str, object]:
-        return {"database": str(cfg.database_path), **store.summary()}
+        return {
+            "storage_backend": cfg.storage_backend,
+            "database_label": cfg.database_label,
+            "artifact_dir": str(cfg.artifact_dir),
+            "eval_capture_enabled": cfg.eval_capture.enabled,
+            "eval_capture_failure_policy": cfg.eval_capture.failure_policy,
+            **store.summary(),
+        }
 
     return app
 

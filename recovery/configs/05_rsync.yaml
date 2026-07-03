@@ -1,0 +1,164 @@
+version: 1
+
+tool:
+  name: rsync
+  verified_rsync_version: "3.2.7-1ubuntu1.4"
+  layer: "05_controlled_staging_cold_copy_transport"
+
+project:
+  output_root: "state/dry_runs/05_rsync"
+  local_test_root: "state/local_test/05_rsync"
+
+commands:
+  rsync: "/usr/bin/rsync"
+  virsh: "/usr/bin/virsh"
+  stat: "/usr/bin/stat"
+
+policy:
+  default_mode: "dry_run"
+  require_execute_for_writes: true
+  require_delete_confirmation: true
+  delete_confirmation_phrase: "ALLOW_RSYNC_DELETE"
+  delete_confirmation_prefix: "RSYNC_DELETE"
+  restore_confirmation_prefix: "RESTORE_RSYNC"
+  vm_cold_copy_confirmation_prefix: "COLD_COPY_VM"
+  delete_destination_must_be_under_local_test: true
+  refuse_root_destination: true
+  refuse_source_equals_destination: true
+  refuse_destination_inside_source: true
+  refuse_source_inside_destination: true
+  copy_config_snapshot_into_run: true
+  report_name: "rsync_report.json"
+  itemized_name: "itemized.log"
+  stdout_name: "rsync.stdout.txt"
+  stderr_name: "rsync.stderr.txt"
+  stable_sort_local_test: true
+
+rsync_defaults:
+  archive: true
+  xattrs: true
+  acls: true
+  numeric_ids: true
+  itemize_changes: true
+  stats: true
+  human_readable: true
+  protect_args: true
+  delete: false
+  checksum: false
+  sparse: true
+  one_file_system: false
+  copy_links: false
+  preserve_hard_links: true
+  partial: false
+  inplace: false
+  partial_dir: ""
+  out_format: "%i %n%L"
+  extra_args: ""
+
+protected_destinations:
+  paths: "/;/home;/home/wantless;/etc;/usr;/bin;/sbin;/lib;/lib64;/boot;/var;/opt;/mnt;/media"
+
+profiles:
+  local-scratch-copy:
+    description: "Local proof copy profile. Copies generated scratch source into local destination without delete."
+    source: "state/local_test/05_rsync/source"
+    destination: "state/local_test/05_rsync/dest/copy"
+    generate_local_test_artifacts: true
+    delete: false
+    allow_delete: false
+    require_source_exists: true
+    require_destination_parent_exists: false
+    destination_must_be_under_project: true
+    copy_contents: true
+    sudo_read: false
+
+  local-scratch-mirror-no-delete:
+    description: "Local proof mirror profile without delete. Leaves destination-only files in place."
+    source: "state/local_test/05_rsync/source"
+    destination: "state/local_test/05_rsync/dest/mirror_no_delete"
+    generate_local_test_artifacts: true
+    generate_destination_extra: true
+    delete: false
+    allow_delete: false
+    require_source_exists: true
+    require_destination_parent_exists: false
+    destination_must_be_under_project: true
+    copy_contents: true
+    sudo_read: false
+
+  local-scratch-mirror-delete-explicit:
+    description: "Local proof mirror profile with delete allowed only after explicit confirmation."
+    source: "state/local_test/05_rsync/source"
+    destination: "state/local_test/05_rsync/dest/mirror_delete_explicit"
+    generate_local_test_artifacts: true
+    generate_destination_extra: true
+    delete: true
+    allow_delete: true
+    require_source_exists: true
+    require_destination_parent_exists: false
+    destination_must_be_under_project: true
+    copy_contents: true
+    sudo_read: false
+
+  rescuezilla-image-staging:
+    description: "Stage Rescuezilla-produced image artifacts after Row 2 image workflow exists."
+    source: "state/rescuezilla_images"
+    destination: "state/staging/rescuezilla_images"
+    delete: false
+    allow_delete: false
+    required: false
+    require_source_exists: false
+    require_destination_parent_exists: false
+    destination_must_be_under_project: false
+    copy_contents: true
+    sudo_read: false
+
+  manifest-tree-staging:
+    description: "Stage generated recovery proof trees and integrity manifests."
+    source: "state/dry_runs;state/integrity_manifests"
+    destination: "state/staging/manifest_tree"
+    delete: false
+    allow_delete: false
+    required: false
+    require_source_exists: false
+    require_destination_parent_exists: false
+    destination_must_be_under_project: false
+    copy_contents: true
+    sudo_read: false
+
+  large-artifact-staging:
+    description: "Stage selected large artifacts already produced by owning rows."
+    source: "state/exports"
+    destination: "state/staging/large_artifacts"
+    delete: false
+    allow_delete: false
+    required: false
+    require_source_exists: false
+    require_destination_parent_exists: false
+    destination_must_be_under_project: false
+    copy_contents: true
+    sudo_read: false
+
+  vm-cold-copy:
+    description: "Future stopped VM disk cold-copy transport. Requires explicit source/destination and live-disk guard."
+    source: ""
+    destination: ""
+    delete: false
+    allow_delete: false
+    required: false
+    require_source_exists: true
+    require_destination_parent_exists: false
+    destination_must_be_under_project: false
+    copy_contents: false
+    sudo_read: true
+    vm_disk_guard: true
+
+vm_guard:
+  libvirt_uri: "qemu:///system"
+  allowed_extensions: ".qcow2;.raw;.img;.vdi;.vmdk"
+  known_disk_roots: "/var/lib/libvirt/images;/home/wantless/PycharmProjects/automation/recovery/state/vm_cold_copies"
+  require_regular_file: true
+  fail_if_extension_not_allowed: true
+  fail_if_domain_running: true
+  fail_if_source_matches_running_domain_disk: true
+  require_domain_for_known_vm_roots: false

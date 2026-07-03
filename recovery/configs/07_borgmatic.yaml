@@ -1,0 +1,97 @@
+version: 1
+
+tool:
+  name: borgmatic
+  verified_borgmatic_version: "2.1.6"
+  verified_borg_version: "1.4.4"
+  layer: "07_borg_policy_retention_check_hook_orchestration"
+
+project:
+  output_root: "state/dry_runs/07_borgmatic"
+  local_test_root: "state/local_test/07_borgmatic"
+  generated_config_root: "state/generated/07_borgmatic"
+
+commands:
+  borgmatic: "/usr/local/bin/borgmatic-2.1.6"
+  borg: "/usr/local/bin/borg-1.4.4"
+
+policy:
+  required_borgmatic_version: "borgmatic 2.1.6"
+  required_borg_version: "borg 1.4.4"
+  reject_borg_major_regex: "^borg 2\\."
+  default_actions: false
+  compression: "zstd,6"
+  archive_name_format: "{hostname}-wantless-{now:%Y%m%dT%H%M%S}"
+  local_test_archive_name_format: "{hostname}-borgmatic-local-test-{now:%Y%m%dT%H%M%S}"
+  match_archives: "sh:{hostname}-wantless-*"
+  local_test_match_archives: "sh:{hostname}-borgmatic-local-test-*"
+  lock_wait: 20
+  umask: 077
+  keep_daily: 14
+  keep_weekly: 8
+  keep_monthly: 12
+  keep_yearly: 2
+  check_repository_frequency: "always"
+  check_archives_frequency: "4 weeks"
+  check_extract_frequency: "4 weeks"
+  require_execute_for_repo_create: true
+  require_execute_for_backup: true
+  require_execute_for_prune_compact: true
+  repo_create_confirmation_prefix: "BORGMATIC_REPO_CREATE"
+  backup_confirmation_prefix: "BORGMATIC_BACKUP"
+  retention_confirmation_prefix: "BORGMATIC_RETENTION"
+  require_mounted_vault_for_real_profile: true
+  vault_mountpoint: "/mnt/wantless_recovery"
+  copy_config_snapshot_into_run: true
+  report_name: "borgmatic_report.json"
+  stdout_name: "borgmatic.stdout.txt"
+  stderr_name: "borgmatic.stderr.txt"
+
+profiles:
+  local-test:
+    description: "Local borgmatic proof profile. Safe to create and write under project state."
+    repository: "state/local_test/07_borgmatic/repository"
+    repository_label: "local-test"
+    source_directories: "state/local_test/07_borgmatic/source"
+    config_path: "state/generated/07_borgmatic/local-test.yaml"
+    encryption: "repokey-blake2"
+    passphrase_source: "local_test_config"
+    local_test_passphrase: "LOCAL_TEST_ONLY_BORGMATIC_NOT_FOR_REAL_BACKUPS"
+    archive_name_format_override: "{hostname}-borgmatic-local-test-{now:%Y%m%dT%H%M%S}"
+    match_archives_override: "sh:{hostname}-borgmatic-local-test-*"
+    allow_repo_create: true
+    allow_backup_execute: true
+    allow_prune_compact_execute: true
+    repository_must_be_under_project: true
+    source_must_be_under_project: true
+    generate_local_test_payload: true
+    required: true
+
+  vault-primary:
+    description: "Future production borgmatic profile for the opened Row 03 LUKS vault."
+    repository: "/mnt/wantless_recovery/06_borg/repository"
+    repository_label: "vault-primary"
+    source_directories: "/home/wantless;/etc;/opt;/usr/local"
+    config_path: "state/generated/07_borgmatic/vault-primary.yaml"
+    encryption: "repokey-blake2"
+    passphrase_source: "environment"
+    passphrase_env: "BORG_PASSPHRASE"
+    archive_name_format_override: "{hostname}-wantless-{now:%Y%m%dT%H%M%S}"
+    match_archives_override: "sh:{hostname}-wantless-*"
+    allow_repo_create: true
+    allow_backup_execute: true
+    allow_prune_compact_execute: true
+    repository_must_be_under_project: false
+    source_must_be_under_project: false
+    require_mounted_vault: true
+    mounted_vault_path: "/mnt/wantless_recovery"
+    required: false
+
+source_policy:
+  global_exclude_patterns: "/proc;/sys;/dev;/run;/tmp;/mnt;/media;/lost+found;**/.cache;**/Cache;**/GPUCache;**/Code Cache;**/.Trash;**/node_modules;**/__pycache__;**/.pytest_cache;**/.mypy_cache;**/.ruff_cache;**/.venv;**/venv;**/*.pyc;**/.DS_Store"
+  recovery_runtime_excludes: "state/dry_runs;state/local_test;state/tmp;archive"
+  full_payload_note: "Final production payload semantics belong to Row 06 Borg and Row 07 borgmatic execution policy. Specialized logical/inventory artifacts remain owned by their rows."
+
+hook_policy:
+  include_command_hooks: false
+  note: "Hooks are generated only when explicitly enabled after owning rows exist. Row 07 owns hook order; owning rows own hook payload semantics."

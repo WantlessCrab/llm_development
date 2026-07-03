@@ -10,6 +10,41 @@ storage:
   database_path: "~/.local/share/local-llm-router/router.sqlite"
   audit_dir: "~/.local/share/local-llm-router/audit"
 
+provider_discovery:
+  # Disabled by default. When enabled, discovery runs only after normal daemon
+  # startup succeeds. Discovery failure is reported but does not fail startup.
+  enabled: false
+  run_after_startup: true
+  roots:
+    - "/home/wantless/PycharmProjects/automation/model_runtimes"
+  apply_runtime: true
+  persist_report: true
+  report_dir: "~/.cache/local-llm-router/provider_discovery"
+  add_only_ready: true
+  include_offline_candidates: true
+  probe_timeout_seconds: 10
+  provider_id_prefix: "local"
+  replace_existing: false
+
+local_services:
+  enabled: true
+  targets:
+    local_llm:
+      label: "local_llm backend"
+      authority: "supervisor"
+      supervisor_name: "code-host:local-llm"
+      code_svc_command: "code-svc"
+      health_url: "http://127.0.0.1:8020/health"
+      managed: true
+
+    local_llm_router:
+      label: "local_llm_router daemon"
+      authority: "supervisor"
+      supervisor_name: "code-host:local-llm-router"
+      code_svc_command: "code-svc"
+      health_url: "http://127.0.0.1:8015/health"
+      managed: true
+
 providers:
   local_draft:
     provider_id: "local_draft"
@@ -53,12 +88,12 @@ providers:
       host_pattern: "https://chatgpt.com/*"
       extension_provider_key: "chatgpt"
 
-  local_llm_primary:
-    provider_id: "local_llm_primary"
+  local_vllm_small:
+    provider_id: "local_vllm_small"
     provider_type: "local_llm_http"
-    label: "Local LLM primary"
+    label: "vLLM local-small"
     enabled: true
-    availability: "needs_configuration"
+    availability: "ready"
     capabilities:
       can_capture: true
       can_receive: true
@@ -72,17 +107,56 @@ providers:
       supports_queue_groups: true
       supports_manual_review: true
     config:
-      base_url: null
-      health_endpoint: null
-      chat_endpoint: null
+      base_url: "http://127.0.0.1:8021/v1"
+      health_endpoint: "../health"
+      models_endpoint: "models"
+      chat_endpoint: "chat/completions"
       method: "POST"
-      request_format: null
-      response_format: null
+      request_format: "openai_chat_compatible"
+      response_format: "openai_chat_compatible"
       response_text_path: null
-      model: null
+      api_key: "not-needed"
+      model: "local-small"
       timeout_seconds: 120
       stream: false
       system_prompt: null
+      temperature: 0.2
+      max_tokens: 384
+
+  local_llamacpp_qwen36_35b_q4:
+    provider_id: "local_llamacpp_qwen36_35b_q4"
+    provider_type: "local_llm_http"
+    label: "llama.cpp Qwen3.6 35B Q4"
+    enabled: true
+    availability: "ready"
+    capabilities:
+      can_capture: true
+      can_receive: true
+      can_insert_draft: false
+      can_manual_send: true
+      can_dispatch_request: true
+      can_return_response: true
+      supports_browser_session: false
+      supports_http_session: true
+      supports_streaming: false
+      supports_queue_groups: true
+      supports_manual_review: true
+    config:
+      base_url: "http://127.0.0.1:8023/v1"
+      health_endpoint: "../health"
+      models_endpoint: "models"
+      chat_endpoint: "chat/completions"
+      method: "POST"
+      request_format: "openai_chat_compatible"
+      response_format: "openai_chat_compatible"
+      response_text_path: null
+      api_key: "not-needed"
+      model: "local-qwen36-35b-q4-llamacpp"
+      timeout_seconds: 300
+      stream: false
+      system_prompt: null
+      temperature: 0.2
+      max_tokens: 384
 
 targets:
   local_draft:
@@ -117,4 +191,40 @@ routes:
     target:
       type: "local_draft"
       id: "default"
+    wrapper: "source_attribution_default"
+
+  - route_id: "chatgpt_user_to_local_draft"
+    name: "ChatGPT latest user to local draft"
+    enabled: true
+    mode: "manual_draft_bridge"
+    source:
+      provider: "chatgpt"
+      role: "user"
+    target:
+      type: "local_draft"
+      id: "default"
+    wrapper: "source_attribution_default"
+
+  - route_id: "chatgpt_user_to_vllm_small"
+    name: "ChatGPT latest user to vLLM local-small"
+    enabled: false
+    mode: "manual_provider_dispatch"
+    source:
+      provider: "chatgpt"
+      role: "user"
+    target:
+      type: "provider"
+      id: "local_vllm_small"
+    wrapper: "source_attribution_default"
+
+  - route_id: "chatgpt_user_to_llamacpp_qwen36"
+    name: "ChatGPT latest user to llama.cpp Qwen3.6 35B Q4"
+    enabled: false
+    mode: "manual_provider_dispatch"
+    source:
+      provider: "chatgpt"
+      role: "user"
+    target:
+      type: "provider"
+      id: "local_llamacpp_qwen36_35b_q4"
     wrapper: "source_attribution_default"

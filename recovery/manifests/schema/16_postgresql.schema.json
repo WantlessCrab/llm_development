@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "16_postgresql.schema.json",
+  "title": "Recovery PostgreSQL logical database report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.postgresql.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script",
+        "docker_path"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "postgresql"
+        },
+        "script": {
+          "type": "string"
+        },
+        "docker_path": {
+          "type": "string"
+        },
+        "docker_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "active_container": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "server_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "server_version_num": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pg_dump_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pg_restore_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "discover-active-server",
+        "assert-major-match",
+        "list-databases",
+        "capture-server",
+        "capture-extensions",
+        "capture-schema-inventory",
+        "dump-globals",
+        "dump-database-custom",
+        "dump-all-required",
+        "verify-restore-list",
+        "restore-plan",
+        "restore-disposable",
+        "restore-smoke",
+        "row-count-sanity",
+        "gate"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "capture",
+        "plan",
+        "verify",
+        "guarded-dump",
+        "guarded-restore",
+        "summary",
+        null
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_result"
+      }
+    },
+    "postgresql": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "databases": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "schema_inventory": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "dumps": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "restore": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "row_counts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        },
+        "stdout_redacted": {
+          "type": "boolean"
+        },
+        "binary_stdout_path": {
+          "type": "string"
+        },
+        "binary_input_path": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

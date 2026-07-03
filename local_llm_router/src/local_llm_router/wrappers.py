@@ -3,7 +3,7 @@ from __future__ import annotations
 import html
 
 from .config import AppConfig, WrapperConfig
-from .format_capture import FormatCapture, model_to_dict
+from .format_capture import FormatCapture
 from .models import CaptureEvent
 
 
@@ -70,11 +70,3 @@ def apply_format_wrapper(config: AppConfig, wrapper_id: str, event: CaptureEvent
         diagnostics=diagnostics,
         provider_hints=provider_hints,
     ).normalized()
-
-
-def apply_wrapper(config: AppConfig, wrapper_id: str, event: CaptureEvent) -> str:
-    return apply_format_wrapper(config, wrapper_id, event).canonical_markdown
-
-
-def format_capture_to_json_dict(format_capture: FormatCapture) -> dict:
-    return model_to_dict(format_capture.normalized())

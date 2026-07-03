@@ -23,6 +23,16 @@ class ProviderRegistry:
             return LocalLLMHttpProviderConnector(provider_config)
         return ProviderConnector(provider_config)
 
+    def provider_ids(self) -> list[str]:
+        return sorted(self._connectors)
+
+    def has_provider(self, provider_id: str) -> bool:
+        return provider_id in self._connectors
+
+    def upsert_provider(self, provider_config: ProviderConfig) -> None:
+        self.config.providers[provider_config.provider_id] = provider_config
+        self._connectors[provider_config.provider_id] = self._build_connector(provider_config)
+
     def list_profiles(self) -> list[ProviderProfile]:
         return [connector.profile() for connector in self._connectors.values()]
 

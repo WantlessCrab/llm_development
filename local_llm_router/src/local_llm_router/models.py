@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -119,6 +120,8 @@ class ProviderDispatchRequest(BaseModel):
     delivery_id: str
     queue_group_id: str | None = None
     manual_confirmed: bool = True
+    prompt_wrapper_id: str | None = None
+    prompt_wrapper_label: str | None = None
     options: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -139,6 +142,15 @@ class ProviderSessionItem(BaseModel):
     source_session_id: str
     provider: str | None = None
     label: str | None = None
+    label_source: str | None = None
+    manual_alias: str | None = None
+    inferred_label: str | None = None
+    inferred_label_source: str | None = None
+    label_updated_at: str | None = None
+    conversation_id: str | None = None
+    gizmo_id: str | None = None
+    conversation_url: str | None = None
+    conversation_title: str | None = None
     queue_group_id: str = "default"
     queue_group_name: str = "Default queue"
     assigned_at: str | None = None
@@ -209,6 +221,54 @@ class SessionQueueGroupResponse(BaseModel):
     error: str | None = None
 
 
+class SessionLabelRequest(BaseModel):
+    source_session_id: str
+    provider: str | None = None
+    label: str
+    label_source: str = "user_saved"
+
+
+class SessionLabelResponse(BaseModel):
+    ok: bool
+    source_session_id: str
+    provider: str | None = None
+    label: str
+    label_source: str = "user_saved"
+    label_updated_at: str | None = None
+    queue_group_id: str = "default"
+    queue_group_name: str = "Default queue"
+    error: str | None = None
+
+
+class PromptWrapperSummary(BaseModel):
+    wrapper_id: str
+    label: str
+    description: str = ""
+    transform: str = "none"
+    has_before: bool = False
+    has_after: bool = False
+    has_line_prefix: bool = False
+
+
+class PromptWrapperListResponse(BaseModel):
+    prompt_wrappers: list[PromptWrapperSummary]
+
+
+class PromptWrapperApplyRequest(BaseModel):
+    wrapper_id: str
+    text: str
+
+
+class PromptWrapperApplyResponse(BaseModel):
+    ok: bool
+    wrapper_id: str
+    label: str
+    original_length: int
+    wrapped_length: int
+    text: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class DraftCancelRequest(BaseModel):
     reason: str = "cancelled by operator"
 
@@ -266,6 +326,7 @@ class DraftItem(BaseModel):
     wrapped_format_capture: FormatCapture | None = None
     format_version: str | None = None
     format_diagnostics: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class DraftListResponse(BaseModel):
@@ -298,3 +359,91 @@ class DeliveryUpdateResponse(BaseModel):
     ok: bool
     delivery_id: str
     status: str | None = None
+
+
+RouteActionSourceKind = Literal[
+    "latest_user", "latest_assistant", "selected_draft", "generated_response"]
+RouteActionTargetKind = Literal[
+    "local_draft", "local_provider", "browser_provider", "chatgpt_active"]
+RouteActionStatusName = Literal[
+    "queued", "dispatched", "inserted", "already_queued", "blocked", "failed"]
+LocalServiceActionName = Literal["status", "start", "stop", "restart"]
+
+
+class RouteActionSourceModel(BaseModel):
+    kind: RouteActionSourceKind
+    provider: str | None = None
+    role: str | None = None
+    delivery_id: str | None = None
+    source_session_id: str | None = None
+    capture_event: CaptureEvent | None = None
+
+
+class RouteActionTargetModel(BaseModel):
+    kind: RouteActionTargetKind
+    provider_id: str | None = None
+    browser_provider: str | None = None
+    target_session_id: str | None = None
+
+
+class RouteActionExecuteRequest(BaseModel):
+    source: RouteActionSourceModel
+    target: RouteActionTargetModel
+    queue_group_id: str = "default"
+    duplicate_intent: bool = True
+    manual_confirmed: bool = True
+    prompt_wrapper_id: str | None = None
+    prompt_wrapper_label: str | None = None
+    operator_action_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteActionExecuteResponse(BaseModel):
+    ok: bool
+    status: RouteActionStatusName
+    message: str
+    operator_action_id: str
+    queue_group_id: str
+    source: dict[str, Any] = Field(default_factory=dict)
+    target: dict[str, Any] = Field(default_factory=dict)
+    delivery_ids: list[str] = Field(default_factory=list)
+    generated_delivery_ids: list[str] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class LocalServiceStatusItem(BaseModel):
+    service_id: str
+    label: str
+    authority: str = "supervisor"
+    supervisor_name: str | None = None
+    code_svc_command: str | None = None
+    supervisor_available: bool = False
+    code_svc_path: str | None = None
+    supervisor_state: str | None = None
+    supervisor_ok: bool = False
+    health_url: str
+    health_ok: bool
+    health_status: str | None = None
+    health_error: str | None = None
+    managed: bool = True
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class LocalServicesStatusResponse(BaseModel):
+    ok: bool
+    enabled: bool
+    services: list[LocalServiceStatusItem]
+
+
+class LocalServiceActionRequest(BaseModel):
+    target: str | None = None
+
+
+class LocalServiceActionResponse(BaseModel):
+    ok: bool
+    enabled: bool
+    action: LocalServiceActionName
+    target: str | None = None
+    message: str
+    services: list[LocalServiceStatusItem] = Field(default_factory=list)
+    command_results: list[dict[str, Any]] = Field(default_factory=list)

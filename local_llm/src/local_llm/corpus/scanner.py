@@ -34,8 +34,14 @@ def file_sha256(path: Path) -> str:
 
 def matches_any(relative: str, patterns: list[str]) -> bool:
     normalized = relative.replace("\\", "/")
-    return any(fnmatch.fnmatch(normalized, pattern) for pattern in patterns)
-
+    for pattern in patterns:
+        normalized_pattern = pattern.replace("\\", "/")
+        if fnmatch.fnmatch(normalized, normalized_pattern):
+            return True
+        if normalized_pattern.startswith("**/") and fnmatch.fnmatch(normalized,
+                                                                    normalized_pattern[3:]):
+            return True
+    return False
 
 def scan_corpus(corpus_id: str, corpus: CorpusConfig) -> list[FileCandidate]:
     candidates: list[FileCandidate] = []

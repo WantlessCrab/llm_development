@@ -10,7 +10,15 @@ class ModelProvider(Protocol):
     def health_check(self) -> tuple[bool, str]:
         ...
 
-    async def chat(self, messages: list[dict[str, str]], settings: dict[str, object]) -> ModelProviderResponse:
+    def build_request_payload(
+            self,
+            messages: list[dict[str, str]],
+            settings: dict[str, object],
+    ) -> dict[str, object]:
+        ...
+
+    async def chat(self, messages: list[dict[str, str]],
+                   settings: dict[str, object]) -> ModelProviderResponse:
         ...
 
 

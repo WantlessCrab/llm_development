@@ -1,6 +1,9 @@
-from local_llm.contracts import RespondRequest
+from local_llm.contracts import RespondResponse
 
 
-def test_respond_request_contract():
-    req = RespondRequest(workflow_id="default_rag_answer", input="hello")
-    assert req.workflow_id == "default_rag_answer"
+def test_respond_response_is_packet_native():
+    fields = set(RespondResponse.model_fields)
+    assert "turn_packet_id" in fields
+    assert "packet_summary" in fields
+    assert "run_id" not in fields
+    assert "eval_report_id" not in fields

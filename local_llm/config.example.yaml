@@ -5,8 +5,39 @@ server:
   port: 8020
 
 storage:
-  database_path: "~/.local/share/local-llm/local_llm.sqlite"
+  backend: "postgres"
+  database_url: "postgresql://llm_database@127.0.0.1:8032/llm_database"
+  database_password_env: "LOCAL_LLM_POSTGRES_PASSWORD"
   artifact_dir: "~/.local/share/local-llm/artifacts"
+
+eval_capture:
+  enabled: true
+  default_capture_mode: "full"
+  default_privacy_level: "none"
+  failure_policy: "fail_closed"
+  source_system: "local_llm"
+  runtime_root: null
+  runtime_capture_enabled: true
+  models_payload_capture_enabled: true
+  redaction_policy_version: 1
+
+privacy:
+  allow_ui_toggle: true
+  allow_cli_toggle: true
+  strict_retrieval_identity_redaction: true
+  retrieval_identity_hmac_secret_env: null
+
+training:
+  experiment_default_replicates: 2
+  experiment_max_replicates_per_condition: 20
+  experiment_max_planned_packets: 100
+  operator_score_min: 1
+  operator_score_max: 5
+  operator_label_options:
+    - accept
+    - revise
+    - reject
+    - unclear
 
 model_profiles:
   local_basic:
@@ -15,6 +46,10 @@ model_profiles:
     api_key: "not-needed"
     model: "local-small"
     context_window: 8192
+    eval_capture_mode: "full"
+    privacy_level: "none"
+    privacy_required: false
+    runtime_root: null
     defaults:
       temperature: 0.2
       max_tokens: 900
@@ -43,13 +78,16 @@ corpora:
       - "**/*.zip"
       - "**/.mypy_cache/**"
       - "**/.pytest_cache/**"
+      - "**/*.egg-info/**"
+      - "tests/**"
+      - "**/tests/**"
 
 rag_profiles:
   project_basic:
     enabled: true
     corpus: "primary_local_corpus"
     retrieval:
-      method: "sqlite_fts"
+      method: "postgres_fts"
       top_k: 8
     chunking:
       target_chars: 1800
@@ -82,3 +120,5 @@ workflows:
     model_profile: "local_basic"
     rag_profile: "project_basic"
     prompt_profile: "source_grounded_answer"
+    eval_capture_mode: "full"
+    privacy_level: "none"

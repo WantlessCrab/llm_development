@@ -1,0 +1,73 @@
+version: 1
+
+tool:
+  name: pipx
+  verified_pipx_version: "1.4.3"
+  layer: "12_user_python_cli_reinstall"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/12_pipx"
+  generated_root: "state/generated/12_pipx"
+  wheelhouse_root: "state/wheelhouse/12_pipx"
+
+commands:
+  pipx: "/usr/bin/pipx"
+  python3: "/usr/bin/python3"
+  pip: "/usr/bin/pip3"
+  readlink: "/usr/bin/readlink"
+  sha256sum: "/usr/bin/sha256sum"
+
+policy:
+  copy_config_snapshot_into_run: true
+  report_name: "pipx_report.json"
+  restore_plan_name: "pipx_restore_plan.md"
+  reinstall_input_name: "pipx_reinstall_input.json"
+  reinstall_script_name: "reinstall_pipx.review.sh"
+  wheelhouse_manifest_name: "pipx_wheelhouse_manifest.json"
+  generated_script_mode: "0600"
+  reinstall_execution_guard_env: "CONFIRM_PIPX_REINSTALL"
+  reinstall_execution_guard_value: "I_UNDERSTAND_THIS_REINSTALLS_PIPX_APPS"
+  wheelhouse_build_guard_env: "CONFIRM_PIPX_WHEELHOUSE_BUILD"
+  wheelhouse_build_guard_value: "I_UNDERSTAND_THIS_DOWNLOADS_PYTHON_WHEELS"
+  fail_if_pipx_missing: true
+  fail_if_pipx_version_unexpected: false
+  include_user_scope: true
+  include_global_scope: false
+  include_recovery_tool_roots: false
+  scan_local_bin: true
+  scan_global_bin: false
+  scan_recovery_bins: false
+  hash_entrypoint_targets: false
+  entrypoint_hash_max_bytes: 1048576
+  include_venv_file_inventory: true
+  venv_inventory_max_entries_per_venv: 2500
+  venv_inventory_hash_max_bytes: 262144
+  include_runpip_freeze: true
+  include_runpip_list_json: true
+  generated_script_prefers_captured_specs: true
+  generated_script_reinstalls_injections: true
+  generated_script_notes_interpreter_drift: true
+  wheelhouse_build_requires_execute: true
+  wheelhouse_include_captured_apps: true
+  wheelhouse_include_injected_packages: true
+  wheelhouse_no_binary: false
+  no_execute: true
+
+paths:
+  user_pipx_home: "~/.local/share/pipx"
+  legacy_user_pipx_home: "~/.local/pipx"
+  user_pipx_bin_dir: "~/.local/bin"
+  user_pipx_man_dir: "~/.local/share/man"
+  global_pipx_home: "/opt/pipx"
+  global_pipx_bin_dir: "/usr/local/bin"
+  global_pipx_man_dir: "/usr/local/share/man"
+  recovery_tool_roots: "/opt/recovery-pipx;/opt/recovery-tools"
+  recovery_bin_dirs: "/usr/local/bin"
+  critical_wheelhouse_roots: "state/wheelhouse/12_pipx;/mnt/wantless_recovery/12_pipx/wheelhouse"
+
+capture:
+  environment_variables: "PIPX_HOME;PIPX_BIN_DIR;PIPX_MAN_DIR;PIPX_GLOBAL_HOME;PIPX_GLOBAL_BIN_DIR;PIPX_GLOBAL_MAN_DIR;PIPX_DEFAULT_PYTHON;PATH;VIRTUAL_ENV;PYTHONPATH"
+  critical_package_specs: "pipx"
+  critical_entrypoints: "pipx"
+  ignore_entrypoint_names: "python;python3;pip;pip3;activate"

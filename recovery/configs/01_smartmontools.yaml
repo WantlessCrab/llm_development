@@ -1,0 +1,78 @@
+version: 1
+
+tool:
+  name: smartmontools
+  verified_smartctl_version: "7.4"
+  verified_gsmartcontrol_version: "1.1.4"
+  layer: "01_physical_media_dock_disk_health"
+
+project:
+  output_root: "state/dry_runs/01_smartmontools"
+
+commands:
+  smartctl: "/usr/sbin/smartctl"
+  lsblk: "/usr/bin/lsblk"
+
+roles:
+  source:
+    label: "source_nvme"
+    required: true
+    smart_device: "/dev/nvme0"
+    block_device: "/dev/nvme0n1"
+    expected_model_regex: "Samsung|990 PRO|NVMe"
+    min_capacity_bytes: 1900000000000
+    require_smart_status: true
+    require_usb_transport: false
+
+  backup_hdd:
+    label: "backup_hdd_ironwolf_24tb"
+    required: true
+    smart_device: "/dev/sda"
+    smart_type: "sat"
+    block_device: "/dev/disk/by-id/wwn-0x5000c500fd981379"
+    expected_model_regex: "IronWolf|ST24000|Seagate"
+    min_capacity_bytes: 23000000000000
+    require_smart_status: true
+    require_usb_transport: true
+    require_dock_passthrough: true
+
+  replacement_ssd:
+    label: "replacement_ssd_future"
+    required: false
+    smart_device: ""
+    block_device: ""
+    expected_model_regex: "SSD|NVMe|Samsung|Crucial|WD|Western Digital|Seagate"
+    min_capacity_bytes: 1900000000000
+    require_smart_status: true
+    require_usb_transport: false
+
+thresholds:
+  max_reallocated_sectors: 0
+  max_current_pending_sectors: 0
+  max_offline_uncorrectable_sectors: 0
+  max_udma_crc_errors: 0
+  max_nvme_critical_warning: 0
+  max_nvme_media_errors: 0
+  max_nvme_error_log_entries_warn: 0
+  max_temperature_celsius_warn: 55
+  max_temperature_celsius_fail: 65
+  max_nvme_percentage_used_warn: 80
+  max_nvme_percentage_used_fail: 95
+
+gate_modes:
+  local:
+    require_source: true
+    require_backup_hdd: false
+    require_replacement_ssd: false
+
+  full:
+    require_source: true
+    require_backup_hdd: true
+    require_replacement_ssd: false
+
+capture:
+  include_text_reports: true
+  include_json_reports: true
+  include_lsblk_inventory: true
+  include_scan_open_text: true
+  include_scan_open_json: true

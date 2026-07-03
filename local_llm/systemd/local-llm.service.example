@@ -9,6 +9,15 @@ ExecStart=%h/.local/bin/local-llm serve
 Restart=on-failure
 RestartSec=2
 Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-%h/.config/local-llm/local-llm.env
+
+# Expected environment file content:
+#   LOCAL_LLM_POSTGRES_PASSWORD=<local PostgreSQL password>
+#
+# Database URL stays passwordless in config.yaml. The password is read from
+# storage.database_password_env, default LOCAL_LLM_POSTGRES_PASSWORD.
+# Always-on eval capture and privacy-mode persistence require the PostgreSQL
+# Phase 1 schema through 040_always_on_eval_capture.
 
 [Install]
 WantedBy=default.target

@@ -1,0 +1,26 @@
+[Unit]
+Description=Wantless Recovery verification activation
+Documentation=file:/home/wantless/PycharmProjects/automation/recovery/configs/08_systemd.yaml
+ConditionPathExists=/home/wantless/PycharmProjects/automation/recovery/scripts/08_systemd.sh
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=root
+Group=wantless
+UMask=0002
+WorkingDirectory=/home/wantless/PycharmProjects/automation/recovery
+Environment=RECOVERY_SYSTEMD_CONTEXT=system
+EnvironmentFile=-/etc/wantless-recovery/recovery.env
+ExecStart=/home/wantless/PycharmProjects/automation/recovery/scripts/08_systemd.sh manual-verify --unit-context system --scope verify
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/home/wantless/PycharmProjects/automation/recovery/state
+TimeoutStartSec=45min
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "01_smartmontools.schema.json",
+  "title": "Recovery smartmontools report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.smartmontools.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "smartmontools"
+        },
+        "script": {
+          "type": "string"
+        },
+        "smartctl_path": {
+          "type": "string"
+        },
+        "lsblk_path": {
+          "type": "string"
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "scan",
+        "capture-source",
+        "capture-backup-hdd",
+        "capture-replacement-ssd",
+        "selftest-short",
+        "selftest-log",
+        "assert-dock-passthrough",
+        "assert-backup-hdd",
+        "assert-replacement-ssd",
+        "gate"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/device_report"
+      }
+    },
+    "roles": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/role_report"
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/command_result"
+      }
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    },
+    "role_report": {
+      "type": "object",
+      "required": [
+        "role",
+        "required",
+        "found",
+        "ok",
+        "failures",
+        "warnings"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "found": {
+          "type": "boolean"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "device": {
+          "$ref": "#/$defs/device_report"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "device_report": {
+      "type": "object",
+      "required": [
+        "smart_device",
+        "smart_type",
+        "summary"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "smart_device": {
+          "type": "string"
+        },
+        "smart_type": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "serial": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "firmware": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "capacity_bytes": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "smart_passed": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "temperature_celsius": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lsblk_path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "lsblk_transport": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

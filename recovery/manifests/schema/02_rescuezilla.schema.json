@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "02_rescuezilla.schema.json",
+  "title": "Recovery Rescuezilla report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.rescuezilla.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "rescuezilla"
+        },
+        "script": {
+          "type": "string"
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "verify-iso",
+        "list-usb-candidates",
+        "capture-source-layout",
+        "capture-uefi",
+        "write-image-manifest",
+        "list-images",
+        "validate-image-manifest",
+        "assert-target-size"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/command_result"
+      }
+    },
+    "iso": {
+      "$ref": "#/$defs/iso_report"
+    },
+    "source_layout": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "uefi": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "image_manifest": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "usb_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "image_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "target_size": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    },
+    "iso_report": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

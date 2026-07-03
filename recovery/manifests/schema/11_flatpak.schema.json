@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "11_flatpak.schema.json",
+  "title": "Recovery Flatpak state report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.flatpak.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script",
+        "flatpak_path"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "flatpak"
+        },
+        "script": {
+          "type": "string"
+        },
+        "flatpak_path": {
+          "type": "string"
+        },
+        "flatpak_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "capture-remotes",
+        "capture-apps",
+        "capture-runtimes",
+        "capture-overrides",
+        "capture-scopes",
+        "capture-app-data-manifest",
+        "offline-export-plan",
+        "verify-offline-artifacts",
+        "restore-plan",
+        "generate-reinstall-script"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "capture",
+        "plan",
+        "verify",
+        "summary",
+        null
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_result"
+      }
+    },
+    "flatpak": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "scopes": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "remotes": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "remote_config": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "apps": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "runtimes": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "overrides": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "app_data": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "restore_plan": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

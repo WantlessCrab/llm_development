@@ -1,0 +1,15 @@
+[Unit]
+Description=Wantless Recovery desktop/session capture
+Documentation=file:/home/wantless/PycharmProjects/automation/recovery/configs/08_systemd.yaml
+ConditionPathExists=/home/wantless/PycharmProjects/automation/recovery/scripts/08_systemd.sh
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/wantless/PycharmProjects/automation/recovery
+Environment=RECOVERY_SYSTEMD_CONTEXT=user
+ExecStart=/home/wantless/PycharmProjects/automation/recovery/scripts/08_systemd.sh manual-desktop-capture --unit-context user
+TimeoutStartSec=10min
+
+[Install]
+WantedBy=default.target

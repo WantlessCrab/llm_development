@@ -3,25 +3,39 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>local_llm_router draft inbox</title>
+    <title>LLMR Control Center</title>
     <style>
 		:root {
-			--bg: #120d13;
-			--bg-soft: #19121a;
-			--bg-card: #201722;
-			--bg-card-2: #261b29;
-			--text: #f7eef8;
-			--muted: #c9adca;
-			--muted-2: #9e849f;
-			--border: #4a354d;
-			--border-soft: #36263a;
-			--accent: #d894bd;
-			--accent-2: #b98dd7;
-			--accent-3: #f0c9dd;
-			--danger: #e68a9c;
-			--ok: #b6d7a8;
-			--warn: #e7c07b;
-			--shadow: rgba(0, 0, 0, 0.35);
+			color-scheme: dark;
+			--bg: #120914;
+			--bg2: #170d19;
+			--panel: #1b101d;
+			--panel2: #24132a;
+			--panel3: #2b1730;
+			--field: #100a12;
+			--text: #fff5fb;
+			--muted: #dec2df;
+			--dim: #b691b7;
+			--faint: #866887;
+			--border: #3a2440;
+			--border2: #714b78;
+			--accent: #ffd7ee;
+			--pink: #ff4fb8;
+			--pink2: #ff74c7;
+			--pink3: #ff9bd7;
+			--pinkSoft: rgba(255, 79, 184, .16);
+			--pinkCard: #261124;
+			--orange: #ff9d42;
+			--orange2: #ffb46e;
+			--orangeSoft: rgba(255, 157, 66, .16);
+			--orangeCard: #27160d;
+			--blue: #9fc9ff;
+			--blueSoft: rgba(159, 201, 255, .14);
+			--green: #b6d7a8;
+			--greenSoft: rgba(182, 215, 168, .13);
+			--danger: #ff7f9f;
+			--dangerSoft: rgba(255, 127, 159, .13);
+			--shadow: rgba(0, 0, 0, .36);
 			--mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 			--sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 		}
@@ -36,12 +50,11 @@
 		}
 
 		body {
-			font-family: var(--sans);
-			background: radial-gradient(circle at 16% 0%, rgba(216, 148, 189, 0.18), transparent 34rem),
-			radial-gradient(circle at 90% 12%, rgba(185, 141, 215, 0.16), transparent 30rem),
-			var(--bg);
+			background: radial-gradient(circle at 7% 0%, rgba(255, 79, 184, .18), transparent 34rem),
+			radial-gradient(circle at 92% 10%, rgba(255, 157, 66, .10), transparent 28rem),
+			linear-gradient(180deg, #120914 0%, #0f0811 100%);
 			color: var(--text);
-			padding: 24px;
+			font: 12px/1.38 var(--sans);
 		}
 
 		button, input, select, textarea {
@@ -52,1351 +65,2241 @@
 			cursor: pointer;
 		}
 
-		.shell {
-			width: min(1480px, 100%);
+		button:disabled {
+			opacity: .55;
+			cursor: not-allowed;
+		}
+
+		.app-shell {
+			width: min(1680px, 100%);
 			margin: 0 auto;
+			padding: 18px;
 		}
 
 		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
 			display: grid;
-			grid-template-columns: 1fr auto;
-			gap: 16px;
-			align-items: start;
-			margin-bottom: 16px;
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 14px;
+			align-items: center;
+			padding: 12px;
+			margin: -18px -18px 14px;
+			border-bottom: 1px solid rgba(255, 79, 184, .25);
+			background: linear-gradient(180deg, rgba(27, 15, 29, .98), rgba(18, 9, 20, .94));
+			backdrop-filter: blur(14px);
+			box-shadow: 0 14px 30px rgba(0, 0, 0, .25);
 		}
 
-		.title-block h1 {
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			min-width: 0;
+		}
+
+		.brand-mark {
+			display: grid;
+			place-items: center;
+			width: 36px;
+			height: 36px;
+			border: 1px solid rgba(255, 79, 184, .55);
+			border-radius: 14px;
+			background: radial-gradient(circle at 30% 18%, rgba(255, 116, 199, .32), rgba(36, 19, 42, .9));
+			color: var(--pink3);
+			font-weight: 950;
+			box-shadow: 0 0 22px rgba(255, 79, 184, .16);
+		}
+
+		h1 {
 			margin: 0;
-			font-size: clamp(28px, 3vw, 42px);
-			line-height: 1.05;
-			letter-spacing: -0.04em;
-			color: var(--text);
-			text-shadow: 0 3px 18px rgba(216, 148, 189, 0.22);
+			font-size: 18px;
+			line-height: 1.1;
+			color: var(--accent);
+			letter-spacing: -.02em;
 		}
 
 		.subtitle {
-			margin-top: 8px;
-			color: var(--muted);
-			font-size: 14px;
+			color: var(--dim);
+			margin-top: 2px;
+			font-size: 11.5px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 
-		.toolbar {
+		.top-actions, .row-actions {
 			display: flex;
-			flex-wrap: wrap;
-			gap: 8px;
-			justify-content: flex-end;
+			gap: 7px;
 			align-items: center;
-		}
-
-		.button, .tab {
-			border: 1px solid var(--border);
-			background: rgba(32, 23, 34, 0.88);
-			color: var(--text);
-			border-radius: 999px;
-			padding: 8px 12px;
-			box-shadow: 0 8px 24px var(--shadow);
-			transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-		}
-
-		.button:hover, .tab:hover {
-			transform: translateY(-1px);
-			background: rgba(47, 34, 51, 0.95);
-			border-color: var(--accent);
-		}
-
-		.button:disabled {
-			opacity: 0.55;
-			cursor: not-allowed;
-			transform: none;
-		}
-
-		.button.danger {
-			border-color: rgba(230, 138, 156, 0.75);
-		}
-
-		.button.ok {
-			border-color: rgba(182, 215, 168, 0.75);
-		}
-
-		.tabs {
-			display: flex;
 			flex-wrap: wrap;
-			gap: 8px;
-			margin: 16px 0;
+			justify-content: flex-end;
 		}
 
-		.tab {
-			font-size: 13px;
-		}
-
-		.tab.active {
-			background: linear-gradient(135deg, rgba(216, 148, 189, 0.34), rgba(185, 141, 215, 0.24));
-			border-color: var(--accent);
-			color: var(--accent-3);
-		}
-
-		.filters {
-			display: grid;
-			grid-template-columns: minmax(220px, 1.1fr) minmax(180px, 0.65fr) minmax(260px, 1fr) minmax(240px, 1fr) auto;
-			gap: 10px;
-			margin: 14px 0 18px;
-			align-items: end;
-			padding: 12px;
-			border: 1px solid var(--border-soft);
-			background: rgba(25, 18, 26, 0.72);
-			border-radius: 18px;
-			box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-		}
-
-		.group-tools {
-			display: grid;
-			grid-template-columns: minmax(240px, 1fr) auto auto;
-			gap: 10px;
-			margin: 0 0 18px;
-			align-items: end;
-			padding: 12px;
-			border: 1px solid var(--border-soft);
-			background: rgba(25, 18, 26, 0.48);
-			border-radius: 18px;
-		}
-
-		.field {
-			display: grid;
-			gap: 5px;
-		}
-
-		.field label {
-			font-size: 11px;
-			text-transform: uppercase;
-			letter-spacing: 0.08em;
-			color: var(--muted-2);
-		}
-
-		.field input,
-		.field select {
-			width: 100%;
-			border: 1px solid var(--border);
-			background: #100b11;
+		.button, .pill-button {
+			border: 1px solid var(--border2);
 			color: var(--text);
-			border-radius: 12px;
-			padding: 9px 10px;
-			outline: none;
-		}
-
-		.field input:focus,
-		.field select:focus,
-		textarea:focus {
-			border-color: var(--accent);
-			box-shadow: 0 0 0 3px rgba(216, 148, 189, 0.15);
-		}
-
-		.stats {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-			gap: 10px;
-			margin: 14px 0 8px;
-		}
-
-		.stat {
-			border: 1px solid var(--border-soft);
-			background: rgba(32, 23, 34, 0.74);
-			border-radius: 16px;
-			padding: 12px;
+			background: linear-gradient(180deg, #27172b, #1d111f);
+			border-radius: 999px;
+			padding: 7px 10px;
+			box-shadow: 0 8px 22px rgba(0, 0, 0, .18);
 			transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
 		}
 
-		.stat.clickable {
-			cursor: pointer;
-		}
-
-		.stat.clickable:hover {
+		.button:hover, .pill-button:hover {
 			transform: translateY(-1px);
-			border-color: var(--accent);
-			background: rgba(47, 34, 51, 0.88);
+			border-color: var(--pink2);
+			background: linear-gradient(180deg, #321c37, #221326);
 		}
 
-		.stat.active {
-			border-color: var(--accent);
-			background: linear-gradient(135deg, rgba(216, 148, 189, 0.24), rgba(185, 141, 215, 0.16));
+		.button.primary {
+			border-color: rgba(255, 116, 199, .78);
+			color: var(--accent);
 		}
 
-		.stat-value {
-			font-size: 24px;
-			font-weight: 800;
-			line-height: 1;
+		.button.ok {
+			border-color: rgba(182, 215, 168, .78);
 		}
 
-		.stat-label {
-			margin-top: 5px;
-			color: var(--muted);
-			font-size: 12px;
+		.button.warn {
+			border-color: rgba(255, 180, 110, .78);
 		}
 
-		.status-line {
-			min-height: 22px;
-			margin: 10px 0;
-			color: var(--muted);
-			font-size: 13px;
+		.button.danger {
+			border-color: rgba(255, 127, 159, .82);
 		}
 
-		.session-group {
-			border: 1px solid var(--border-soft);
-			background: rgba(25, 18, 26, 0.48);
-			border-radius: 22px;
-			margin: 16px 0;
-			overflow: hidden;
-			box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+		.button.slim {
+			padding: 5px 8px;
+			font-size: 11px;
 		}
 
-		.session-header {
+		.layout {
 			display: grid;
-			grid-template-columns: 1fr auto;
-			gap: 12px;
-			padding: 14px 16px;
-			background: linear-gradient(135deg, rgba(216, 148, 189, 0.13), rgba(185, 141, 215, 0.08));
-			border-bottom: 1px solid var(--border-soft);
-		}
-
-		.session-title {
-			font-weight: 800;
-			letter-spacing: -0.02em;
-		}
-
-		.session-meta {
-			margin-top: 5px;
-			color: var(--muted);
-			font-size: 12px;
-			font-family: var(--mono);
-			overflow-wrap: anywhere;
-		}
-
-		.session-actions {
-			display: flex;
-			gap: 8px;
-			align-items: start;
-			flex-wrap: wrap;
-			justify-content: flex-end;
-		}
-
-		.draft-list {
-			display: grid;
-			gap: 12px;
-			padding: 14px;
-		}
-
-		.draft {
-			border: 1px solid var(--border);
-			background: var(--bg-card);
-			border-radius: 18px;
-			overflow: hidden;
-			box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
-		}
-
-		.draft summary {
-			list-style: none;
-			cursor: pointer;
-			padding: 14px 16px;
-			background: linear-gradient(135deg, rgba(38, 27, 41, 0.94), rgba(32, 23, 34, 0.94));
-		}
-
-		.draft summary::-webkit-details-marker {
-			display: none;
-		}
-
-		.draft-summary {
-			display: grid;
-			grid-template-columns: 1fr auto;
+			grid-template-columns: 300px minmax(0, 1fr) 380px;
 			gap: 14px;
 			align-items: start;
 		}
 
-		.draft-title {
-			display: flex;
-			flex-wrap: wrap;
+		.rail, .inspector {
+			position: sticky;
+			top: 76px;
+			display: grid;
+			gap: 10px;
+		}
+
+		.workspace {
+			display: grid;
+			gap: 10px;
+			min-width: 0;
+		}
+
+		.section {
+			border: 1px solid var(--border);
+			background: rgba(27, 16, 29, .92);
+			border-radius: 17px;
+			overflow: hidden;
+			box-shadow: inset 3px 0 0 rgba(255, 79, 184, .22), 0 10px 28px rgba(0, 0, 0, .21);
+		}
+
+		.section.state-ready, .section.state-selected, .section.state-default, .section.state-custom, .section.state-off {
+			border-color: rgba(255, 79, 184, .72);
+			background: linear-gradient(90deg, rgba(255, 79, 184, .08), rgba(27, 16, 29, .94));
+			box-shadow: inset 3px 0 0 var(--pink), 0 10px 28px rgba(0, 0, 0, .21);
+		}
+
+		.section.state-warn, .section.state-missing, .section.state-stale {
+			border-color: rgba(255, 157, 66, .82);
+			background: linear-gradient(90deg, rgba(255, 157, 66, .09), rgba(27, 16, 29, .94));
+			box-shadow: inset 3px 0 0 var(--orange), 0 10px 28px rgba(0, 0, 0, .21);
+		}
+
+		.section.state-error {
+			border-color: rgba(255, 127, 159, .82);
+			box-shadow: inset 3px 0 0 var(--danger), 0 10px 28px rgba(0, 0, 0, .21);
+		}
+
+		.section-toggle {
+			width: 100%;
+			border: 0;
+			border-bottom: 1px solid rgba(255, 255, 255, .07);
+			background: linear-gradient(90deg, #24132a, #1b101d);
+			color: var(--accent);
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto minmax(90px, 210px);
 			gap: 8px;
 			align-items: center;
-			font-weight: 800;
-			font-size: 18px;
-			letter-spacing: -0.02em;
+			padding: 9px 10px;
+			text-align: left;
 		}
 
-		.chip {
-			display: inline-flex;
-			align-items: center;
-			border: 1px solid var(--border);
-			border-radius: 999px;
-			padding: 3px 8px;
-			font-size: 11px;
-			line-height: 1.2;
-			color: var(--muted);
-			background: rgba(16, 11, 17, 0.74);
+		.section.collapsed .section-toggle {
+			border-bottom: 0;
 		}
 
-		.chip.queued {
-			color: var(--accent-3);
-			border-color: rgba(216, 148, 189, 0.72);
-			background: rgba(216, 148, 189, 0.12);
+		.section-toggle .chevron {
+			color: var(--pink2);
+			font-weight: 900;
 		}
 
-		.chip.draft_inserted {
-			color: var(--accent-3);
-			border-color: rgba(185, 141, 215, 0.68);
-			background: rgba(185, 141, 215, 0.12);
+		.section.state-warn .chevron, .section.state-missing .chevron, .section.state-stale .chevron {
+			color: var(--orange2);
 		}
 
-		.chip.handled {
-			color: var(--ok);
-			border-color: rgba(182, 215, 168, 0.55);
-			background: rgba(182, 215, 168, 0.09);
-		}
-
-		.chip.failed {
-			color: var(--danger);
-			border-color: rgba(230, 138, 156, 0.68);
-			background: rgba(230, 138, 156, 0.10);
-		}
-
-		.chip.cancelled {
-			color: var(--warn);
-			border-color: rgba(231, 192, 123, 0.68);
-			background: rgba(231, 192, 123, 0.10);
-		}
-
-		.draft-subtitle {
-			margin-top: 6px;
-			color: var(--muted);
-			font-size: 12px;
-			font-family: var(--mono);
-			overflow-wrap: anywhere;
-		}
-
-		.draft-summary-right {
-			color: var(--muted);
-			text-align: right;
-			font-size: 12px;
+		.section-title {
+			font-weight: 850;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
 
-		.draft-body {
-			padding: 14px 16px 16px;
-			border-top: 1px solid var(--border-soft);
-			background: rgba(18, 13, 19, 0.45);
+		.section-summary {
+			color: var(--pink3);
+			font-size: 10.5px;
+			text-align: right;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.section.state-warn .section-summary, .section.state-missing .section-summary, .section.state-stale .section-summary {
+			color: var(--orange2);
+		}
+
+		.section-body {
+			padding: 10px;
+			display: grid;
+			gap: 10px;
+		}
+
+		.section.collapsed .section-body {
+			display: none;
+		}
+
+		.pill, .chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			border: 1px solid var(--border2);
+			border-radius: 999px;
+			padding: 2px 7px;
+			color: var(--muted);
+			background: rgba(16, 10, 18, .72);
+			font-size: 10.5px;
+			line-height: 1.25;
+			white-space: nowrap;
+		}
+
+		.pill.ready, .chip.queued, .chip.response_received, .chip.draft_inserted, .chip.handled {
+			border-color: rgba(255, 116, 199, .72);
+			color: var(--accent);
+			background: var(--pinkSoft);
+		}
+
+		.pill.warn, .chip.dispatching, .chip.dispatched, .chip.cancelled {
+			border-color: rgba(255, 180, 110, .78);
+			color: #ffe5c4;
+			background: var(--orangeSoft);
+		}
+
+		.pill.error, .chip.failed {
+			border-color: rgba(255, 127, 159, .82);
+			color: #ffd3dd;
+			background: var(--dangerSoft);
+		}
+
+		.pill.ok {
+			border-color: rgba(182, 215, 168, .72);
+			color: var(--green);
+			background: var(--greenSoft);
+		}
+
+		.pill.off {
+			border-color: rgba(216, 92, 171, .55);
+			color: #ffd7ee;
+			background: rgba(216, 92, 171, .08);
+		}
+
+		.metric-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+			gap: 9px;
+		}
+
+		.metric-card {
+			border: 1px solid var(--border);
+			background: rgba(16, 10, 18, .60);
+			border-radius: 14px;
+			padding: 9px;
+			min-width: 0;
+		}
+
+		.metric-card.clickable {
+			cursor: pointer;
+		}
+
+		.metric-card.clickable:hover, .metric-card.active {
+			border-color: var(--pink2);
+			background: rgba(255, 79, 184, .10);
+		}
+
+		.metric-value {
+			font-size: 24px;
+			line-height: 1;
+			font-weight: 900;
+			letter-spacing: -.03em;
+			color: var(--text);
+		}
+
+		.metric-label {
+			margin-top: 5px;
+			color: var(--dim);
+			font-size: 11px;
+		}
+
+		.metric-sub {
+			margin-top: 2px;
+			color: var(--faint);
+			font-family: var(--mono);
+			font-size: 10px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.field {
+			display: grid;
+			gap: 4px;
+			min-width: 0;
+		}
+
+		.field label {
+			color: var(--dim);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: .07em;
+		}
+
+		input, select, textarea {
+			width: 100%;
+			border: 1px solid var(--border2);
+			background: var(--field);
+			color: var(--text);
+			border-radius: 11px;
+			padding: 7px 8px;
+			outline: none;
+		}
+
+		input:focus, select:focus, textarea:focus {
+			border-color: var(--pink2);
+			box-shadow: 0 0 0 3px rgba(255, 79, 184, .13);
+		}
+
+		textarea {
+			min-height: 220px;
+			resize: vertical;
+			font-family: var(--mono);
+			white-space: pre-wrap;
+		}
+
+		.filter-grid {
+			display: grid;
+			gap: 8px;
+		}
+
+		.two-col {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px;
+		}
+
+		.three-col {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 8px;
+		}
+
+		.list {
+			display: grid;
+			gap: 8px;
+		}
+
+		.record-card {
+			border: 1px solid var(--border);
+			background: rgba(16, 10, 18, .58);
+			border-radius: 14px;
+			padding: 10px;
+			display: grid;
+			gap: 7px;
+		}
+
+		.record-card.selected {
+			border-color: var(--pink2);
+			background: rgba(255, 79, 184, .10);
+			box-shadow: 0 0 0 1px rgba(255, 79, 184, .12);
+		}
+
+		.record-head {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 9px;
+			align-items: start;
+		}
+
+		.record-title {
+			color: var(--text);
+			font-weight: 820;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.record-sub {
+			color: var(--dim);
+			font-family: var(--mono);
+			font-size: 10.5px;
+			overflow-wrap: anywhere;
+		}
+
+		.record-text {
+			color: var(--muted);
+			font-size: 11.5px;
+			max-height: 5.5em;
+			overflow: hidden;
+			white-space: pre-wrap;
+			border-left: 2px solid rgba(255, 79, 184, .25);
+			padding-left: 8px;
 		}
 
 		.meta-grid {
 			display: grid;
-			grid-template-columns: 170px 1fr;
-			gap: 5px 12px;
-			padding: 12px;
-			border: 1px solid var(--border-soft);
-			border-radius: 14px;
-			background: rgba(16, 11, 17, 0.48);
-			font-size: 12px;
-			margin-bottom: 12px;
+			grid-template-columns: 126px minmax(0, 1fr);
+			gap: 5px 9px;
 		}
 
 		.meta-key {
-			color: var(--muted-2);
+			color: var(--faint);
 			font-family: var(--mono);
+			font-size: 10.5px;
 		}
 
-		.meta-value {
+		.meta-val {
 			color: var(--muted);
 			font-family: var(--mono);
+			font-size: 10.5px;
 			overflow-wrap: anywhere;
 		}
 
-		.draft-text {
-			width: 100%;
-			min-height: 280px;
-			max-height: 70vh;
-			resize: vertical;
-			background: #0c080d;
-			color: #fff7fb;
-			border: 1px solid var(--border);
-			border-radius: 14px;
-			padding: 14px;
-			font-family: var(--mono);
-			font-size: 13px;
-			line-height: 1.42;
-			white-space: pre-wrap;
-			tab-size: 2;
+		.table {
+			display: grid;
+			gap: 6px;
 		}
 
-		.diagnostics {
-			margin-top: 12px;
-			border: 1px solid var(--border-soft);
-			background: rgba(16, 11, 17, 0.48);
-			border-radius: 14px;
-			padding: 12px;
+		.table-row {
+			display: grid;
+			grid-template-columns: minmax(160px, 1fr) repeat(4, minmax(54px, auto));
+			gap: 7px;
+			align-items: center;
+			border: 1px solid rgba(113, 75, 120, .45);
+			background: rgba(16, 10, 18, .44);
+			border-radius: 12px;
+			padding: 8px;
+		}
+
+		.table-row.compact {
+			grid-template-columns: minmax(180px, 1fr) minmax(120px, .4fr) minmax(150px, .55fr) auto;
+		}
+
+		.table-main {
+			min-width: 0;
+		}
+
+		.raw-box {
+			margin: 0;
+			border: 1px solid var(--border);
+			background: #0b070c;
+			border-radius: 13px;
+			padding: 10px;
+			max-height: 360px;
+			overflow: auto;
+			font-family: var(--mono);
+			color: #fff7fb;
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
+		}
+
+		.hint {
+			color: var(--dim);
+			font-size: 11px;
+		}
+
+		.tiny {
+			color: var(--faint);
+			font-size: 10px;
+			font-family: var(--mono);
+		}
+
+		.status-line {
+			min-height: 23px;
 			color: var(--muted);
 			font-family: var(--mono);
-			font-size: 12px;
-			white-space: pre-wrap;
+			font-size: 11px;
+			padding: 2px 1px;
 		}
 
-		.actions {
+		.split-actions {
 			display: flex;
+			gap: 7px;
 			flex-wrap: wrap;
-			gap: 8px;
-			margin-top: 12px;
+			align-items: center;
 		}
 
 		.empty {
-			color: var(--muted);
-			border: 1px dashed var(--border);
-			border-radius: 18px;
-			padding: 28px;
-			background: rgba(25, 18, 26, 0.54);
+			color: var(--dim);
+			border: 1px dashed var(--border2);
+			background: rgba(16, 10, 18, .43);
+			border-radius: 14px;
+			padding: 22px;
 			text-align: center;
 		}
 
-		.small {
-			font-size: 12px;
-			color: var(--muted-2);
+		.timeline {
+			display: grid;
+			gap: 7px;
 		}
 
-		@media (max-width: 980px) {
-			.filters,
-			.group-tools {
-				grid-template-columns: 1fr;
+		.timeline-item {
+			display: grid;
+			grid-template-columns: 22px minmax(0, 1fr);
+			gap: 8px;
+			align-items: start;
+		}
+
+		.dot {
+			width: 12px;
+			height: 12px;
+			border-radius: 999px;
+			margin: 3px auto;
+			background: var(--pink2);
+			box-shadow: 0 0 12px rgba(255, 79, 184, .24);
+		}
+
+		.dot.warn {
+			background: var(--orange2);
+		}
+
+		.dot.error {
+			background: var(--danger);
+		}
+
+		@media (max-width: 1320px) {
+			.layout {
+				grid-template-columns: 280px minmax(0, 1fr);
+			}
+
+			.inspector {
+				position: static;
+				grid-column: 1 / -1;
 			}
 		}
 
-		@media (max-width: 820px) {
-			body {
-				padding: 14px;
+		@media (max-width: 920px) {
+			.app-shell {
+				padding: 12px;
 			}
 
 			.topbar {
 				grid-template-columns: 1fr;
+				margin: -12px -12px 12px;
 			}
 
-			.toolbar {
+			.top-actions {
 				justify-content: flex-start;
 			}
 
-			.stats {
-				grid-template-columns: repeat(2, minmax(100px, 1fr));
-			}
-
-			.session-header, .draft-summary {
+			.layout {
 				grid-template-columns: 1fr;
 			}
 
-			.draft-summary-right {
-				text-align: left;
+			.rail {
+				position: static;
 			}
 
-			.meta-grid {
+			.section-toggle {
+				grid-template-columns: auto minmax(0, 1fr) auto;
+			}
+
+			.section-summary {
+				display: none;
+			}
+
+			.table-row, .table-row.compact {
 				grid-template-columns: 1fr;
 			}
 		}
     </style>
 </head>
 <body>
-<div class="shell">
+<div class="app-shell">
     <header class="topbar">
-        <div class="title-block">
-            <h1>local_llm_router draft inbox</h1>
-            <div class="subtitle">Manual bridge queue for captured LLM messages.</div>
+        <div class="brand">
+            <div class="brand-mark">R</div>
+            <div class="brand-copy">
+                <h1>LLMR Control Center</h1>
+                <div class="subtitle">Persistent router history, queue state, sessions, providers, services, wrappers,
+                    and diagnostics.
+                </div>
+            </div>
         </div>
-        <div class="toolbar">
-            <button class="button" id="refresh">Refresh</button>
+        <div class="top-actions">
+            <button class="button primary" id="refreshAll">Refresh all</button>
             <button class="button" id="expandAll">Expand all</button>
             <button class="button" id="collapseAll">Collapse all</button>
-            <button class="button danger" id="clearVisibleQueue">Clear selected queue</button>
-            <button class="button danger" id="clearAllQueues">Clear all queued</button>
+            <button class="button" id="openApiHealth">Health</button>
         </div>
     </header>
 
-    <section class="stats" id="stats"></section>
+    <div class="layout">
+        <aside class="rail">
+            <section class="section state-ready" id="filterPanel">
+                <button class="section-toggle" type="button" data-toggle-section="filters">
+                    <span class="chevron">▾</span><span class="section-title">Control filters</span><span
+                        class="pill ready">Active</span><span class="section-summary"
+                                                              id="filterSummary">All records</span>
+                </button>
+                <div class="section-body" data-section-body="filters">
+                    <div class="filter-grid">
+                        <div class="field">
+                            <label for="searchBox">Search all visible router records</label>
+                            <input id="searchBox" type="search"
+                                   placeholder="Body, session, group, provider, id, hash, status…"/>
+                        </div>
+                        <div class="two-col">
+                            <div class="field">
+                                <label for="statusFilter">Status</label>
+                                <select id="statusFilter"></select>
+                            </div>
+                            <div class="field">
+                                <label for="sourceModeFilter">Source mode</label>
+                                <select id="sourceModeFilter">
+                                    <option value="all">All sources</option>
+                                    <option value="chatgpt_captures">ChatGPT captures</option>
+                                    <option value="provider_responses">Provider responses</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="queueGroupFilter">Queue group</label>
+                            <select id="queueGroupFilter"></select>
+                        </div>
+                        <div class="field">
+                            <label for="providerFilter">Provider</label>
+                            <select id="providerFilter"></select>
+                        </div>
+                        <div class="field">
+                            <label for="sessionFilter">Session</label>
+                            <select id="sessionFilter"></select>
+                        </div>
+                        <div class="two-col">
+                            <div class="field">
+                                <label for="sortMode">Sort</label>
+                                <select id="sortMode">
+                                    <option value="newest">Newest first</option>
+                                    <option value="oldest">Oldest first</option>
+                                    <option value="status">Status</option>
+                                    <option value="session">Session</option>
+                                    <option value="provider">Provider</option>
+                                    <option value="length_desc">Longest body</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="displayMode">Display</label>
+                                <select id="displayMode">
+                                    <option value="engagements">Engagements</option>
+                                    <option value="compact">Compact table</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="split-actions">
+                            <button class="button slim" id="clearFilters">Clear filters</button>
+                            <button class="button slim warn" id="clearVisibleQueued">Clear visible queued</button>
+                            <button class="button slim danger" id="clearAllQueued">Clear all queued</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-    <nav class="tabs" aria-label="Draft status filters">
-        <button class="tab active" data-status="queued" id="tabQueued">Queued</button>
-        <button class="tab" data-status="draft_inserted" id="tabInserted">Inserted</button>
-        <button class="tab" data-status="handled" id="tabHandled">Handled</button>
-        <button class="tab" data-status="cancelled" id="tabCancelled">Cancelled</button>
-        <button class="tab" data-status="failed" id="tabFailed">Failed</button>
-        <button class="tab" data-status="all" id="tabAll">All</button>
-    </nav>
+            <section class="section state-ready" id="queueToolsPanel">
+                <button class="section-toggle" type="button" data-toggle-section="queueTools">
+                    <span class="chevron">▾</span><span class="section-title">Queue group tools</span><span
+                        class="pill ready">Manage</span><span class="section-summary">Create, rename, delete</span>
+                </button>
+                <div class="section-body" data-section-body="queueTools">
+                    <div class="field">
+                        <label for="newGroupName">Create group</label>
+                        <input id="newGroupName" placeholder="New queue group name"/>
+                    </div>
+                    <button class="button slim ok" id="createGroup">Create group</button>
+                    <div class="field">
+                        <label for="renameGroupName">Rename selected group</label>
+                        <input id="renameGroupName" placeholder="New selected-group name"/>
+                    </div>
+                    <div class="split-actions">
+                        <button class="button slim" id="renameGroup">Rename selected</button>
+                        <button class="button slim danger" id="deleteGroup">Delete selected</button>
+                    </div>
+                    <div class="hint">Group operations use stable queue_group_id values. Default cannot be renamed or
+                        deleted.
+                    </div>
+                </div>
+            </section>
 
-    <section class="filters">
-        <div class="field">
-            <label for="search">Search</label>
-            <input id="search" type="search" placeholder="Search text, session, title, hash, route..."/>
-        </div>
-        <div class="field">
-            <label for="providerFilter">Provider</label>
-            <select id="providerFilter">
-                <option value="all">All providers</option>
-            </select>
-        </div>
-        <div class="field">
-            <label for="queueGroupFilter">Queue group</label>
-            <select id="queueGroupFilter">
-                <option value="all">All queue groups</option>
-            </select>
-        </div>
-        <div class="field">
-            <label for="sessionFilter">Session</label>
-            <select id="sessionFilter">
-                <option value="all">All sessions</option>
-            </select>
-        </div>
-        <div class="field">
-            <label>&nbsp;</label>
-            <button class="button" id="clearFilters">Clear filters</button>
-        </div>
-    </section>
+            <section class="section state-ready" id="selectedPanel">
+                <button class="section-toggle" type="button" data-toggle-section="selected">
+                    <span class="chevron">▾</span><span class="section-title">Selected record</span><span
+                        class="pill ready" id="selectedPill">None</span><span class="section-summary"
+                                                                              id="selectedSummary">Select an engagement</span>
+                </button>
+                <div class="section-body" data-section-body="selected" id="selectedTools"></div>
+            </section>
 
-    <section class="group-tools">
-        <div class="field">
-            <label for="newQueueGroupName">Create queue group</label>
-            <input id="newQueueGroupName" type="text" placeholder="New queue group name"/>
-        </div>
-        <button class="button ok" id="createQueueGroup">Create group</button>
-        <button class="button danger" id="deleteSelectedGroup">Delete selected group</button>
-    </section>
+            <div class="status-line" id="statusLine">Loading router state…</div>
+        </aside>
 
-    <div class="status-line" id="statusLine">Loading drafts…</div>
+        <main class="workspace" id="workspace">
+            <section class="section state-ready" id="overviewSection">
+                <button class="section-toggle" type="button" data-toggle-section="overview">
+                    <span class="chevron">▾</span><span class="section-title">System overview</span><span
+                        class="pill ready" id="overviewPill">Loading</span><span class="section-summary"
+                                                                                 id="overviewSummary">Router state</span>
+                </button>
+                <div class="section-body" data-section-body="overview" id="overviewBody"></div>
+            </section>
 
-    <main id="drafts">
-        <div class="empty">Loading…</div>
-    </main>
+            <section class="section state-ready" id="engagementSection">
+                <button class="section-toggle" type="button" data-toggle-section="engagements">
+                    <span class="chevron">▾</span><span class="section-title">Engagement explorer</span><span
+                        class="pill ready" id="engagementPill">0 visible</span><span class="section-summary"
+                                                                                     id="engagementSummary">Persistent delivery records</span>
+                </button>
+                <div class="section-body" data-section-body="engagements" id="engagementBody"></div>
+            </section>
+
+            <section class="section state-ready" id="sessionsSection">
+                <button class="section-toggle" type="button" data-toggle-section="sessions">
+                    <span class="chevron">▾</span><span class="section-title">Sessions</span><span class="pill ready"
+                                                                                                   id="sessionsPill">0</span><span
+                        class="section-summary">Known provider sessions</span>
+                </button>
+                <div class="section-body" data-section-body="sessions" id="sessionsBody"></div>
+            </section>
+
+            <section class="section state-ready" id="groupsSection">
+                <button class="section-toggle" type="button" data-toggle-section="groups">
+                    <span class="chevron">▾</span><span class="section-title">Queue groups</span><span
+                        class="pill ready" id="groupsPill">0</span><span class="section-summary">Collaboration boundaries</span>
+                </button>
+                <div class="section-body" data-section-body="groups" id="groupsBody"></div>
+            </section>
+
+            <section class="section state-ready" id="providersSection">
+                <button class="section-toggle" type="button" data-toggle-section="providers">
+                    <span class="chevron">▾</span><span class="section-title">Providers</span><span class="pill ready"
+                                                                                                    id="providersPill">0</span><span
+                        class="section-summary">Inventory, probe, dispatch</span>
+                </button>
+                <div class="section-body" data-section-body="providers" id="providersBody"></div>
+            </section>
+
+            <section class="section state-ready" id="servicesSection">
+                <button class="section-toggle" type="button" data-toggle-section="services">
+                    <span class="chevron">▾</span><span class="section-title">Local services</span><span
+                        class="pill ready" id="servicesPill">Unknown</span><span class="section-summary">Supervisor / code-svc authority</span>
+                </button>
+                <div class="section-body" data-section-body="services" id="servicesBody"></div>
+            </section>
+
+            <section class="section state-ready" id="wrappersSection">
+                <button class="section-toggle" type="button" data-toggle-section="wrappers">
+                    <span class="chevron">▾</span><span class="section-title">Prompt wrappers</span><span
+                        class="pill off" id="wrappersPill">Off</span><span
+                        class="section-summary">Route-time transforms</span>
+                </button>
+                <div class="section-body" data-section-body="wrappers" id="wrappersBody"></div>
+            </section>
+
+            <section class="section state-ready" id="eventsSection">
+                <button class="section-toggle" type="button" data-toggle-section="events">
+                    <span class="chevron">▾</span><span class="section-title">Live event stream</span><span
+                        class="pill off" id="eventsPill">Connecting</span><span class="section-summary">Runtime events while this page is open</span>
+                </button>
+                <div class="section-body" data-section-body="events" id="eventsBody"></div>
+            </section>
+
+            <section class="section state-ready" id="diagnosticsSection">
+                <button class="section-toggle" type="button" data-toggle-section="diagnostics">
+                    <span class="chevron">▾</span><span class="section-title">Diagnostics</span><span
+                        class="pill ready">Raw</span><span class="section-summary">Status, routes, JSON</span>
+                </button>
+                <div class="section-body" data-section-body="diagnostics" id="diagnosticsBody"></div>
+            </section>
+        </main>
+
+        <aside class="inspector">
+            <section class="section state-ready" id="inspectorSection">
+                <button class="section-toggle" type="button" data-toggle-section="inspector">
+                    <span class="chevron">▾</span><span class="section-title">Detail inspector</span><span
+                        class="pill ready" id="inspectorPill">Ready</span><span class="section-summary"
+                                                                                id="inspectorSummary">Selected engagement chain</span>
+                </button>
+                <div class="section-body" data-section-body="inspector" id="inspectorBody"></div>
+            </section>
+        </aside>
+    </div>
 </div>
 
 <script>
-    const state = {
-        drafts: [],
-        queueGroups: [],
-        statusFilter: localStorage.getItem("llmr.statusFilter") || "queued",
-        providerFilter: "all",
-        queueGroupFilter: localStorage.getItem("llmr.queueGroupFilter") || "all",
-        sessionFilter: "all",
-        search: "",
-        expandedOverride: null,
-    };
+    (function () {
+        "use strict";
 
-    const els = {
-        stats: document.getElementById("stats"),
-        drafts: document.getElementById("drafts"),
-        statusLine: document.getElementById("statusLine"),
-        refresh: document.getElementById("refresh"),
-        expandAll: document.getElementById("expandAll"),
-        collapseAll: document.getElementById("collapseAll"),
-        clearVisibleQueue: document.getElementById("clearVisibleQueue"),
-        clearAllQueues: document.getElementById("clearAllQueues"),
-        clearFilters: document.getElementById("clearFilters"),
-        search: document.getElementById("search"),
-        providerFilter: document.getElementById("providerFilter"),
-        queueGroupFilter: document.getElementById("queueGroupFilter"),
-        sessionFilter: document.getElementById("sessionFilter"),
-        newQueueGroupName: document.getElementById("newQueueGroupName"),
-        createQueueGroup: document.getElementById("createQueueGroup"),
-        deleteSelectedGroup: document.getElementById("deleteSelectedGroup"),
-        tabs: Array.from(document.querySelectorAll(".tab[data-status]")),
-    };
+        const STORAGE_KEYS = {
+            sections: "llmr.controlCenter.sections.v1",
+            filters: "llmr.controlCenter.filters.v1",
+            selectedDeliveryId: "llmr.controlCenter.selectedDeliveryId.v1",
+            providerId: "llmr.controlCenter.dispatchProviderId.v1",
+            wrapperId: "llmr.controlCenter.wrapperId.v1",
+        };
 
-    function escapeHtml(value) {
-        return String(value ?? "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-
-    function shortId(value, left = 8, right = 6) {
-        const s = String(value || "");
-        if (s.length <= left + right + 3) return s;
-        return `${s.slice(0, left)}…${s.slice(-right)}`;
-    }
-
-    function fmtDate(value) {
-        if (!value) return "";
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return value;
-        return d.toLocaleString();
-    }
-
-    async function api(path, options = {}) {
-        const headers = new Headers(options.headers || {});
-        if (options.body != null && !headers.has("Content-Type")) {
-            headers.set("Content-Type", "application/json");
-        }
-
-        const res = await fetch(path, {
-            ...options,
-            headers,
-        });
-
-        if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new Error(`${res.status} ${res.statusText} ${text}`.trim());
-        }
-        return res.json();
-    }
-
-    function sessionKey(draft) {
-        return draft.source_session_id || `${draft.provider}:${draft.conversation_id || "unknown"}`;
-    }
-
-    function sessionLabel(draft) {
-        const title = draft.conversation_title || "Untitled conversation";
-        const provider = draft.provider || "unknown";
-        const conv = draft.conversation_id ? shortId(draft.conversation_id, 10, 8) : "no-conversation-id";
-        return `${provider} · ${title} · ${conv}`;
-    }
-
-    function queueGroupName(id) {
-        const group = state.queueGroups.find(g => g.queue_group_id === id);
-        return group?.name || id || "Default queue";
-    }
-
-    function draftMarkdown(draft) {
-        return draft.wrapped_body_markdown || draft.wrapped_body || "";
-    }
-
-    function draftPlain(draft) {
-        return draft.wrapped_body_plain || draft.wrapped_body_markdown || draft.wrapped_body || "";
-    }
-
-    function draftHtml(draft) {
-        return draft.wrapped_body_html || richHtml(draft, draftMarkdown(draft));
-    }
-
-    function extractBodyOnly(wrapped) {
-        const text = String(wrapped || "");
-        const start = "--- start content ---";
-        const end = "--- end content ---";
-        const startIndex = text.indexOf(start);
-        const endIndex = text.lastIndexOf(end);
-        if (startIndex >= 0 && endIndex > startIndex) {
-            return text.slice(startIndex + start.length, endIndex).replace(/^\n+|\n+$/g, "");
-        }
-        return text;
-    }
-
-    function metadataText(draft) {
-        return [
-            `delivery_id: ${draft.delivery_id}`,
-            `message_id: ${draft.message_id}`,
-            `route_id: ${draft.route_id}`,
-            `status: ${draft.status}`,
-            `queue_group_id: ${draft.queue_group_id || "default"}`,
-            `queue_group_name: ${draft.queue_group_name || queueGroupName(draft.queue_group_id || "default")}`,
-            `provider: ${draft.provider}`,
-            `source_session_id: ${draft.source_session_id}`,
-            `conversation_id: ${draft.conversation_id || ""}`,
-            `gizmo_id: ${draft.gizmo_id || ""}`,
-            `conversation_title: ${draft.conversation_title || ""}`,
-            `turn_testid: ${draft.turn_testid || ""}`,
-            `capture_source: ${draft.capture_source}`,
-            `format_version: ${draft.format_version || ""}`,
-            `body_hash: ${draft.body_hash}`,
-            `body_length: ${draft.body_length}`,
-            `captured_at: ${draft.captured_at}`,
-            `queued_at: ${draft.queued_at || ""}`,
-            `delivered_at: ${draft.delivered_at || ""}`,
-            `acknowledged_at: ${draft.acknowledged_at || ""}`,
-            `cancelled_at: ${draft.cancelled_at || ""}`,
-            `error: ${draft.error || ""}`,
-            `source_url: ${draft.conversation_url}`,
-        ].join("\n");
-    }
-
-    function diagnosticsText(draft) {
-        const d = draft.format_diagnostics || {};
-        const warnings = Array.isArray(d.warnings) ? d.warnings : [];
-        return [
-            `format_version: ${draft.format_version || ""}`,
-            `markdown_fence_count: ${d.markdown_fence_count ?? ""}`,
-            `dom_pre_count: ${d.dom_pre_count ?? ""}`,
-            `dom_code_count: ${d.dom_code_count ?? ""}`,
-            `fallback_node_count: ${d.fallback_node_count ?? ""}`,
-            `markdown_char_count: ${d.markdown_char_count ?? ""}`,
-            `plain_char_count: ${d.plain_char_count ?? ""}`,
-            `html_char_count: ${d.html_char_count ?? ""}`,
-            `warnings: ${warnings.length ? warnings.join("; ") : ""}`,
-        ].join("\n");
-    }
-
-    function richHtml(draft, text) {
-        return `
-        <article>
-          <h2>${escapeHtml(draft.provider)} / ${escapeHtml(draft.role)} / ${escapeHtml(draft.status)}</h2>
-          <p><strong>Conversation:</strong> ${escapeHtml(draft.conversation_title || draft.conversation_id || "")}</p>
-          <p><strong>Queue:</strong> ${escapeHtml(draft.queue_group_name || queueGroupName(draft.queue_group_id || "default"))}</p>
-          <p><strong>Captured:</strong> ${escapeHtml(draft.captured_at || "")}</p>
-          <p><strong>Source:</strong> ${escapeHtml(draft.conversation_url || "")}</p>
-          <pre style="white-space:pre-wrap;font-family:monospace;">${escapeHtml(text)}</pre>
-        </article>
-      `.trim();
-    }
-
-    async function copyText(text, button, label = "Copied") {
-        await navigator.clipboard.writeText(text);
-        flashButton(button, label);
-    }
-
-    async function copyRich(draft, button) {
-        const markdown = draftMarkdown(draft);
-        const html = draftHtml(draft);
-        if (window.ClipboardItem && navigator.clipboard?.write) {
-            const item = new ClipboardItem({
-                "text/plain": new Blob([markdown], {type: "text/plain"}),
-                "text/html": new Blob([html], {type: "text/html"}),
-            });
-            await navigator.clipboard.write([item]);
-            flashButton(button, "Copied rich");
-            return;
-        }
-        await copyText(markdown, button);
-    }
-
-    function flashButton(button, text) {
-        const old = button.textContent;
-        button.textContent = text;
-        button.disabled = true;
-        setTimeout(() => {
-            button.textContent = old;
-            button.disabled = false;
-        }, 900);
-    }
-
-    function setStatus(message) {
-        els.statusLine.textContent = message;
-    }
-
-    function counts() {
-        const all = state.drafts.length;
-        const queued = state.drafts.filter(d => d.status === "queued").length;
-        const inserted = state.drafts.filter(d => d.status === "draft_inserted").length;
-        const handled = state.drafts.filter(d => d.status === "handled").length;
-        const cancelled = state.drafts.filter(d => d.status === "cancelled").length;
-        const failed = state.drafts.filter(d => d.status === "failed").length;
-        const sessions = new Set(state.drafts.map(sessionKey)).size;
-        const queueGroups = new Set(state.drafts.map(d => d.queue_group_id || "default")).size;
-        return {all, queued, inserted, handled, cancelled, failed, sessions, queueGroups};
-    }
-
-    function setStatusFilter(status) {
-        state.statusFilter = status;
-        state.expandedOverride = null;
-        localStorage.setItem("llmr.statusFilter", state.statusFilter);
-        render();
-    }
-
-    function renderStats() {
-        const c = counts();
-        const items = [
-            {label: "Queued", value: c.queued, status: "queued"},
-            {label: "Inserted", value: c.inserted, status: "draft_inserted"},
-            {label: "Handled", value: c.handled, status: "handled"},
-            {label: "Cancelled", value: c.cancelled, status: "cancelled"},
-            {label: "Failed", value: c.failed, status: "failed"},
-            {label: "All drafts", value: c.all, status: "all"},
-            {label: "Sessions", value: c.sessions, status: null},
-            {label: "Queue groups", value: c.queueGroups, status: null},
+        const STATUS_OPTIONS = [
+            ["all", "All statuses"],
+            ["queued", "Queued"],
+            ["dispatching", "Dispatching"],
+            ["dispatched", "Dispatched"],
+            ["response_received", "Provider responses"],
+            ["draft_inserted", "Inserted"],
+            ["handled", "Handled"],
+            ["failed", "Failed"],
+            ["cancelled", "Cancelled"],
         ];
 
-        els.stats.innerHTML = "";
-        for (const item of items) {
-            const div = document.createElement("div");
-            div.className = "stat";
+        const EVENT_TYPES = [
+            "ready",
+            "message.captured",
+            "delivery.queued",
+            "delivery.clear_queued",
+            "delivery.cancelled",
+            "delivery.draft_inserted",
+            "delivery.failed",
+            "delivery.handled",
+            "queue_group.created",
+            "queue_group.renamed",
+            "queue_group.deleted",
+            "session.queue_group.assigned",
+            "session.label.updated",
+            "provider.probe_completed",
+            "provider_discovery.completed",
+            "local_services.action",
+        ];
 
-            if (item.status) {
-                div.classList.add("clickable");
-                div.classList.toggle("active", state.statusFilter === item.status);
-                div.title = `Show ${item.label.toLowerCase()}`;
-                div.onclick = () => setStatusFilter(item.status);
+        const defaultFilters = {
+            search: "",
+            status: "all",
+            sourceMode: "all",
+            queueGroup: "all",
+            provider: "all",
+            session: "all",
+            sort: "newest",
+            display: "engagements",
+        };
+
+        const defaultSections = {
+            filters: true,
+            queueTools: true,
+            selected: true,
+            overview: true,
+            engagements: true,
+            sessions: false,
+            groups: false,
+            providers: true,
+            services: true,
+            wrappers: false,
+            events: false,
+            diagnostics: false,
+            inspector: true,
+        };
+
+        const state = {
+            statusDetail: null,
+            adminSummary: null,
+            providers: [],
+            queueGroups: [],
+            providerSessions: [],
+            services: [],
+            discovery: null,
+            promptWrappers: [],
+            drafts: [],
+            liveEvents: [],
+            filters: loadJson(STORAGE_KEYS.filters, defaultFilters),
+            sections: loadJson(STORAGE_KEYS.sections, defaultSections),
+            selectedDeliveryId: localStorage.getItem(STORAGE_KEYS.selectedDeliveryId) || "",
+            dispatchProviderId: localStorage.getItem(STORAGE_KEYS.providerId) || "",
+            selectedWrapperId: localStorage.getItem(STORAGE_KEYS.wrapperId) || "",
+            loading: false,
+            lastLoadedAt: null,
+            eventSource: null,
+            errors: [],
+        };
+
+        const els = {
+            refreshAll: byId("refreshAll"),
+            expandAll: byId("expandAll"),
+            collapseAll: byId("collapseAll"),
+            openApiHealth: byId("openApiHealth"),
+            statusLine: byId("statusLine"),
+            searchBox: byId("searchBox"),
+            statusFilter: byId("statusFilter"),
+            sourceModeFilter: byId("sourceModeFilter"),
+            queueGroupFilter: byId("queueGroupFilter"),
+            providerFilter: byId("providerFilter"),
+            sessionFilter: byId("sessionFilter"),
+            sortMode: byId("sortMode"),
+            displayMode: byId("displayMode"),
+            clearFilters: byId("clearFilters"),
+            clearVisibleQueued: byId("clearVisibleQueued"),
+            clearAllQueued: byId("clearAllQueued"),
+            newGroupName: byId("newGroupName"),
+            createGroup: byId("createGroup"),
+            renameGroupName: byId("renameGroupName"),
+            renameGroup: byId("renameGroup"),
+            deleteGroup: byId("deleteGroup"),
+            filterSummary: byId("filterSummary"),
+            selectedPill: byId("selectedPill"),
+            selectedSummary: byId("selectedSummary"),
+            selectedTools: byId("selectedTools"),
+            overviewPill: byId("overviewPill"),
+            overviewSummary: byId("overviewSummary"),
+            overviewBody: byId("overviewBody"),
+            engagementPill: byId("engagementPill"),
+            engagementSummary: byId("engagementSummary"),
+            engagementBody: byId("engagementBody"),
+            sessionsPill: byId("sessionsPill"),
+            sessionsBody: byId("sessionsBody"),
+            groupsPill: byId("groupsPill"),
+            groupsBody: byId("groupsBody"),
+            providersPill: byId("providersPill"),
+            providersBody: byId("providersBody"),
+            servicesPill: byId("servicesPill"),
+            servicesBody: byId("servicesBody"),
+            wrappersPill: byId("wrappersPill"),
+            wrappersBody: byId("wrappersBody"),
+            eventsPill: byId("eventsPill"),
+            eventsBody: byId("eventsBody"),
+            diagnosticsBody: byId("diagnosticsBody"),
+            inspectorPill: byId("inspectorPill"),
+            inspectorSummary: byId("inspectorSummary"),
+            inspectorBody: byId("inspectorBody"),
+        };
+
+        function byId(id) {
+            return document.getElementById(id);
+        }
+
+        function loadJson(key, fallback) {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(key) || "null");
+                return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+                    ? {...fallback, ...parsed}
+                    : {...fallback};
+            } catch (_) {
+                return {...fallback};
+            }
+        }
+
+        function saveFilters() {
+            localStorage.setItem(STORAGE_KEYS.filters, JSON.stringify(state.filters));
+        }
+
+        function saveSections() {
+            localStorage.setItem(STORAGE_KEYS.sections, JSON.stringify(state.sections));
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function shortId(value, left = 9, right = 5) {
+            const s = String(value || "");
+            return s.length <= left + right + 3 ? s : `${s.slice(0, left)}…${s.slice(-right)}`;
+        }
+
+        function fmtDate(value) {
+            if (!value) return "";
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return String(value);
+            return d.toLocaleString();
+        }
+
+        function safeJson(value) {
+            return JSON.stringify(value, null, 2);
+        }
+
+        function setStatus(message, tone = "info") {
+            els.statusLine.textContent = message || "";
+            els.statusLine.style.color = tone === "error" ? "var(--danger)" : tone === "warn" ? "var(--orange2)" : "var(--muted)";
+        }
+
+        function statusClass(status) {
+            return String(status || "").replace(/[^a-z0-9_-]/gi, "_");
+        }
+
+        function statusLabel(status) {
+            const value = String(status || "unknown");
+            return value.replaceAll("_", " ");
+        }
+
+        function primaryText(draft) {
+            return draft?.wrapped_body_markdown || draft?.wrapped_body_plain || draft?.wrapped_body || draft?.body_markdown || draft?.body_plain || "";
+        }
+
+        function sourceText(draft) {
+            return draft?.body_markdown || draft?.body_plain || draft?.body_html || draft?.wrapped_body || "";
+        }
+
+        function sessionKey(draft) {
+            return draft?.source_session_id || `${draft?.provider || "unknown"}:${draft?.conversation_id || "unknown"}`;
+        }
+
+        function selectedDraft() {
+            return state.drafts.find(d => d.delivery_id === state.selectedDeliveryId) || null;
+        }
+
+        function queueGroupName(id) {
+            if (!id || id === "default") return "Default queue";
+            return state.queueGroups.find(g => g.queue_group_id === id)?.name || id;
+        }
+
+        function providerLabel(providerOrId) {
+            if (!providerOrId) return "Unknown provider";
+            if (typeof providerOrId === "object") return providerOrId.label || providerOrId.provider_id || "Unknown provider";
+            const provider = state.providers.find(p => p.provider_id === providerOrId);
+            return provider?.label || providerOrId;
+        }
+
+        function sessionLabel(sessionOrId) {
+            if (!sessionOrId) return "Unknown session";
+            if (typeof sessionOrId === "object") {
+                return sessionOrId.manual_alias || sessionOrId.label || sessionOrId.inferred_label || sessionOrId.conversation_title || sessionOrId.source_session_id;
+            }
+            const session = state.providerSessions.find(s => s.source_session_id === sessionOrId);
+            return sessionLabel(session || {source_session_id: sessionOrId});
+        }
+
+        function dispatchCapableProviders() {
+            return state.providers
+                .filter(provider => provider.enabled)
+                .filter(provider => provider.capabilities?.can_dispatch_request)
+                .filter(provider => provider.provider_type !== "local_draft")
+                .sort((a, b) => providerLabel(a).localeCompare(providerLabel(b)));
+        }
+
+        function selectedDispatchProvider() {
+            const providers = dispatchCapableProviders();
+            return providers.find(p => p.provider_id === state.dispatchProviderId) || providers[0] || null;
+        }
+
+        function wrapperById(wrapperId) {
+            return state.promptWrappers.find(w => w.wrapper_id === wrapperId) || null;
+        }
+
+        function selectedWrapper() {
+            return wrapperById(state.selectedWrapperId);
+        }
+
+        function isProviderResponseDraft(draft) {
+            return Boolean(draft && draft.provider && draft.provider !== "chatgpt");
+        }
+
+        function sourceModeMatches(draft) {
+            if (state.filters.sourceMode === "chatgpt_captures") return draft.provider === "chatgpt";
+            if (state.filters.sourceMode === "provider_responses") return isProviderResponseDraft(draft);
+            return true;
+        }
+
+        function textMatches(draft) {
+            const q = state.filters.search.trim().toLowerCase();
+            if (!q) return true;
+            const haystack = [
+                draft.delivery_id,
+                draft.message_id,
+                draft.route_id,
+                draft.status,
+                draft.provider,
+                providerLabel(draft.provider),
+                draft.source_session_id,
+                sessionLabel(draft.source_session_id),
+                draft.conversation_id,
+                draft.gizmo_id,
+                draft.conversation_url,
+                draft.conversation_title,
+                draft.role,
+                draft.turn_testid,
+                draft.capture_source,
+                draft.body_hash,
+                draft.queue_group_id,
+                draft.queue_group_name,
+                queueGroupName(draft.queue_group_id),
+                primaryText(draft),
+                sourceText(draft),
+                safeJson(draft.metadata || {}),
+                safeJson(draft.format_diagnostics || {}),
+            ].join("\n").toLowerCase();
+            return haystack.includes(q);
+        }
+
+        function filteredDrafts() {
+            let rows = state.drafts.filter(draft => {
+                if (state.filters.status !== "all" && draft.status !== state.filters.status) return false;
+                if (state.filters.queueGroup !== "all" && (draft.queue_group_id || "default") !== state.filters.queueGroup) return false;
+                if (state.filters.provider !== "all" && draft.provider !== state.filters.provider) return false;
+                if (state.filters.session !== "all" && sessionKey(draft) !== state.filters.session) return false;
+                if (!sourceModeMatches(draft)) return false;
+                return textMatches(draft);
+            });
+
+            rows = [...rows].sort((a, b) => {
+                if (state.filters.sort === "oldest") return String(a.queued_at || a.captured_at || "").localeCompare(String(b.queued_at || b.captured_at || ""));
+                if (state.filters.sort === "status") return String(a.status).localeCompare(String(b.status)) || String(b.queued_at || "").localeCompare(String(a.queued_at || ""));
+                if (state.filters.sort === "session") return sessionLabel(sessionKey(a)).localeCompare(sessionLabel(sessionKey(b))) || String(b.queued_at || "").localeCompare(String(a.queued_at || ""));
+                if (state.filters.sort === "provider") return providerLabel(a.provider).localeCompare(providerLabel(b.provider)) || String(b.queued_at || "").localeCompare(String(a.queued_at || ""));
+                if (state.filters.sort === "length_desc") return Number(b.body_length || 0) - Number(a.body_length || 0);
+                return String(b.queued_at || b.captured_at || "").localeCompare(String(a.queued_at || a.captured_at || ""));
+            });
+            return rows;
+        }
+
+        function countBy(rows, keyFn) {
+            const out = {};
+            for (const row of rows || []) {
+                const key = keyFn(row) || "unknown";
+                out[key] = (out[key] || 0) + 1;
+            }
+            return out;
+        }
+
+        function metricValue(key, fallback = 0) {
+            const store = state.statusDetail?.store || state.adminSummary || {};
+            return Number(store[key] ?? fallback ?? 0);
+        }
+
+        async function api(path, options = {}) {
+            const headers = new Headers(options.headers || {});
+            if (options.body != null && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+            const response = await fetch(path, {...options, headers});
+            if (!response.ok) {
+                const text = await response.text().catch(() => "");
+                throw new Error(`${response.status} ${response.statusText} ${text}`.trim());
+            }
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("application/json")) return response.text();
+            return response.json();
+        }
+
+        async function optionalApi(path, options = {}) {
+            try {
+                return {ok: true, data: await api(path, options)};
+            } catch (error) {
+                state.errors.unshift({path, error: String(error), at: new Date().toISOString()});
+                state.errors = state.errors.slice(0, 20);
+                return {ok: false, error: String(error), data: null};
+            }
+        }
+
+        async function loadAll({silent = false} = {}) {
+            state.loading = true;
+            if (!silent) setStatus("Loading router control-center state…");
+            renderTopBusy(true);
+            const [status, admin, providers, groups, drafts, services, discovery, wrappers] = await Promise.all([
+                optionalApi("/api/v1/status/detail"),
+                optionalApi("/api/v1/admin/summary"),
+                optionalApi("/api/v1/providers"),
+                optionalApi("/api/v1/queue-groups"),
+                optionalApi("/api/v1/drafts?include_handled=true"),
+                optionalApi("/api/v1/local-services/status"),
+                optionalApi("/api/v1/provider-discovery/status"),
+                optionalApi("/api/v1/prompt-wrappers"),
+            ]);
+
+            if (status.ok) {
+                state.statusDetail = status.data;
+                state.providerSessions = status.data.provider_sessions || [];
+                state.queueGroups = status.data.queue_groups || state.queueGroups;
+                state.providers = status.data.providers || state.providers;
+            }
+            if (admin.ok) state.adminSummary = admin.data;
+            if (providers.ok) state.providers = providers.data.providers || [];
+            if (groups.ok) state.queueGroups = groups.data.queue_groups || [];
+            if (drafts.ok) state.drafts = drafts.data.drafts || [];
+            if (services.ok) state.services = services.data.services || [];
+            if (discovery.ok) state.discovery = discovery.data;
+            if (wrappers.ok) state.promptWrappers = wrappers.data.prompt_wrappers || [];
+
+            if (!state.selectedDeliveryId || !state.drafts.some(d => d.delivery_id === state.selectedDeliveryId)) {
+                state.selectedDeliveryId = state.drafts[0]?.delivery_id || "";
+                localStorage.setItem(STORAGE_KEYS.selectedDeliveryId, state.selectedDeliveryId);
             }
 
-            div.innerHTML = `
-          <div class="stat-value">${escapeHtml(item.value)}</div>
-          <div class="stat-label">${escapeHtml(item.label)}</div>
-        `;
+            const providersReady = dispatchCapableProviders();
+            if (!state.dispatchProviderId || !providersReady.some(p => p.provider_id === state.dispatchProviderId)) {
+                state.dispatchProviderId = providersReady[0]?.provider_id || "";
+                if (state.dispatchProviderId) localStorage.setItem(STORAGE_KEYS.providerId, state.dispatchProviderId);
+            }
+            if (state.selectedWrapperId && !wrapperById(state.selectedWrapperId)) {
+                state.selectedWrapperId = "";
+                localStorage.removeItem(STORAGE_KEYS.wrapperId);
+            }
 
-            els.stats.appendChild(div);
+            state.lastLoadedAt = new Date().toISOString();
+            state.loading = false;
+            renderAll();
+            renderTopBusy(false);
+            const failed = [status, admin, providers, groups, drafts, services, discovery, wrappers].filter(x => !x.ok).length;
+            setStatus(failed ? `Loaded with ${failed} unavailable API surface(s). See diagnostics.` : `Loaded ${state.drafts.length} visible delivery records at ${fmtDate(state.lastLoadedAt)}.`, failed ? "warn" : "info");
         }
 
-        document.getElementById("tabQueued").textContent = `Queued (${c.queued})`;
-        document.getElementById("tabInserted").textContent = `Inserted (${c.inserted})`;
-        document.getElementById("tabHandled").textContent = `Handled (${c.handled})`;
-        document.getElementById("tabCancelled").textContent = `Cancelled (${c.cancelled})`;
-        document.getElementById("tabFailed").textContent = `Failed (${c.failed})`;
-        document.getElementById("tabAll").textContent = `All (${c.all})`;
-    }
-
-    function populateFilters() {
-        const previousProvider = state.providerFilter;
-        const previousSession = state.sessionFilter;
-        const previousGroup = state.queueGroupFilter;
-
-        const providers = Array.from(new Set(state.drafts.map(d => d.provider).filter(Boolean))).sort();
-
-        els.providerFilter.innerHTML = `<option value="all">All providers</option>`;
-        for (const provider of providers) {
-            const option = document.createElement("option");
-            option.value = provider;
-            option.textContent = provider;
-            els.providerFilter.appendChild(option);
+        function renderTopBusy(busy) {
+            els.refreshAll.disabled = Boolean(busy);
+            els.refreshAll.textContent = busy ? "Refreshing…" : "Refresh all";
         }
 
-        state.providerFilter = providers.includes(previousProvider) ? previousProvider : "all";
-        els.providerFilter.value = state.providerFilter;
-
-        els.queueGroupFilter.innerHTML = `<option value="all">All queue groups</option>`;
-        for (const group of state.queueGroups) {
-            const option = document.createElement("option");
-            option.value = group.queue_group_id;
-            option.textContent = `${group.name}${group.is_default ? " (default)" : ""}`;
-            els.queueGroupFilter.appendChild(option);
+        function renderAll() {
+            applySectionState();
+            populateFilters();
+            renderSelectedTools();
+            renderOverview();
+            renderEngagements();
+            renderSessions();
+            renderGroups();
+            renderProviders();
+            renderServices();
+            renderWrappers();
+            renderEvents();
+            renderDiagnostics();
+            renderInspector();
         }
 
-        const groupIds = state.queueGroups.map(g => g.queue_group_id);
-        state.queueGroupFilter = previousGroup === "all" || groupIds.includes(previousGroup) ? previousGroup : "all";
-        els.queueGroupFilter.value = state.queueGroupFilter;
-
-        const bySession = new Map();
-        for (const draft of state.drafts) {
-            const key = sessionKey(draft);
-            if (!bySession.has(key)) bySession.set(key, sessionLabel(draft));
+        function applySectionState() {
+            for (const [name, expanded] of Object.entries(state.sections)) {
+                const body = document.querySelector(`[data-section-body="${CSS.escape(name)}"]`);
+                const section = body?.closest(".section");
+                const chevron = section?.querySelector(".chevron");
+                if (!section || !body) continue;
+                section.classList.toggle("collapsed", !expanded);
+                if (chevron) chevron.textContent = expanded ? "▾" : "▸";
+            }
         }
 
-        els.sessionFilter.innerHTML = `<option value="all">All sessions</option>`;
-        for (const [key, label] of Array.from(bySession.entries()).sort((a, b) => a[1].localeCompare(b[1]))) {
-            const option = document.createElement("option");
-            option.value = key;
-            option.textContent = label;
-            els.sessionFilter.appendChild(option);
+        function populateFilters() {
+            setOptions(els.statusFilter, STATUS_OPTIONS, state.filters.status);
+            els.sourceModeFilter.value = state.filters.sourceMode;
+            els.sortMode.value = state.filters.sort;
+            els.displayMode.value = state.filters.display;
+            els.searchBox.value = state.filters.search;
+
+            const groupOptions = [["all", "All groups"], ...state.queueGroups.map(g => [g.queue_group_id, `${g.name}${g.is_default ? " · default" : ""}`])];
+            setOptions(els.queueGroupFilter, groupOptions, state.filters.queueGroup);
+
+            const providerIds = [...new Set([...state.providers.map(p => p.provider_id), ...state.drafts.map(d => d.provider).filter(Boolean)])].sort();
+            setOptions(els.providerFilter, [["all", "All providers"], ...providerIds.map(id => [id, providerLabel(id)])], state.filters.provider);
+
+            const sessionIds = [...new Set([...state.providerSessions.map(s => s.source_session_id), ...state.drafts.map(d => sessionKey(d))].filter(Boolean))]
+                .sort((a, b) => sessionLabel(a).localeCompare(sessionLabel(b)));
+            setOptions(els.sessionFilter, [["all", "All sessions"], ...sessionIds.map(id => [id, sessionLabel(id)])], state.filters.session);
+
+            const activeBits = [];
+            if (state.filters.search) activeBits.push(`search: ${state.filters.search}`);
+            if (state.filters.status !== "all") activeBits.push(statusLabel(state.filters.status));
+            if (state.filters.sourceMode !== "all") activeBits.push(state.filters.sourceMode.replaceAll("_", " "));
+            if (state.filters.queueGroup !== "all") activeBits.push(queueGroupName(state.filters.queueGroup));
+            if (state.filters.provider !== "all") activeBits.push(providerLabel(state.filters.provider));
+            if (state.filters.session !== "all") activeBits.push(sessionLabel(state.filters.session));
+            els.filterSummary.textContent = activeBits.length ? activeBits.join(" · ") : "All records";
         }
 
-        state.sessionFilter = bySession.has(previousSession) ? previousSession : "all";
-        els.sessionFilter.value = state.sessionFilter;
-    }
-
-    function draftSortKey(draft) {
-        if (state.statusFilter === "queued") {
-            return draft.queued_at || draft.captured_at || "";
-        }
-        if (state.statusFilter === "draft_inserted") {
-            return draft.delivered_at || draft.queued_at || draft.captured_at || "";
-        }
-        if (state.statusFilter === "handled") {
-            return draft.acknowledged_at || draft.delivered_at || draft.queued_at || draft.captured_at || "";
-        }
-        if (state.statusFilter === "cancelled") {
-            return draft.cancelled_at || draft.acknowledged_at || draft.queued_at || draft.captured_at || "";
-        }
-        if (state.statusFilter === "failed") {
-            return draft.queued_at || draft.captured_at || "";
-        }
-        return draft.cancelled_at || draft.acknowledged_at || draft.delivered_at || draft.queued_at || draft.captured_at || "";
-    }
-
-    function filteredDrafts() {
-        const q = state.search.trim().toLowerCase();
-
-        return state.drafts
-            .filter(d => {
-                if (state.statusFilter !== "all" && d.status !== state.statusFilter) return false;
-                if (state.providerFilter !== "all" && d.provider !== state.providerFilter) return false;
-                if (state.queueGroupFilter !== "all" && (d.queue_group_id || "default") !== state.queueGroupFilter) return false;
-                if (state.sessionFilter !== "all" && sessionKey(d) !== state.sessionFilter) return false;
-
-                if (!q) return true;
-
-                const haystack = [
-                    d.delivery_id,
-                    d.message_id,
-                    d.route_id,
-                    d.status,
-                    d.queue_group_id,
-                    d.queue_group_name,
-                    d.provider,
-                    d.source_session_id,
-                    d.conversation_id,
-                    d.gizmo_id,
-                    d.conversation_title,
-                    d.role,
-                    d.turn_testid,
-                    d.capture_source,
-                    d.body_hash,
-                    d.body_length,
-                    d.captured_at,
-                    d.delivered_at,
-                    d.acknowledged_at,
-                    d.cancelled_at,
-                    d.error,
-                    d.conversation_url,
-                    d.wrapped_body,
-                    d.wrapped_body_markdown,
-                    d.wrapped_body_plain,
-                ].join(" ").toLowerCase();
-
-                return haystack.includes(q);
-            })
-            .sort((a, b) => draftSortKey(b).localeCompare(draftSortKey(a)));
-    }
-
-    function groupKey(draft) {
-        return `${draft.queue_group_id || "default"}::${sessionKey(draft)}`;
-    }
-
-    function groupDrafts(drafts) {
-        const groups = new Map();
-
-        for (const draft of drafts) {
-            const key = groupKey(draft);
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(draft);
+        function setOptions(select, pairs, selected) {
+            const current = pairs.some(([value]) => value === selected) ? selected : pairs[0]?.[0] || "";
+            select.innerHTML = pairs.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join("");
+            select.value = current;
+            if (current !== selected) {
+                if (select === els.statusFilter) state.filters.status = current;
+                if (select === els.queueGroupFilter) state.filters.queueGroup = current;
+                if (select === els.providerFilter) state.filters.provider = current;
+                if (select === els.sessionFilter) state.filters.session = current;
+            }
         }
 
-        return Array.from(groups.entries())
-            .map(([key, items]) => {
-                items.sort((a, b) => draftSortKey(b).localeCompare(draftSortKey(a)));
-                return {key, items};
-            })
-            .sort((a, b) => draftSortKey(b.items[0]).localeCompare(draftSortKey(a.items[0])));
-    }
-
-    function metaGrid(draft) {
-        const fields = [
-            ["delivery_id", draft.delivery_id],
-            ["message_id", draft.message_id],
-            ["route_id", draft.route_id],
-            ["status", draft.status],
-            ["queue_group_id", draft.queue_group_id || "default"],
-            ["queue_group_name", draft.queue_group_name || queueGroupName(draft.queue_group_id || "default")],
-            ["queued_at", draft.queued_at],
-            ["delivered_at", draft.delivered_at],
-            ["acknowledged_at", draft.acknowledged_at],
-            ["cancelled_at", draft.cancelled_at],
-            ["error", draft.error],
-            ["provider", draft.provider],
-            ["source_session_id", draft.source_session_id],
-            ["conversation_id", draft.conversation_id],
-            ["gizmo_id", draft.gizmo_id],
-            ["turn_testid", draft.turn_testid],
-            ["capture_source", draft.capture_source],
-            ["format_version", draft.format_version],
-            ["body_hash", draft.body_hash],
-            ["body_length", draft.body_length],
-            ["captured_at", draft.captured_at],
-            ["source_url", draft.conversation_url],
-        ];
-
-        const grid = document.createElement("div");
-        grid.className = "meta-grid";
-
-        for (const [key, value] of fields) {
-            const k = document.createElement("div");
-            k.className = "meta-key";
-            k.textContent = key;
-
-            const v = document.createElement("div");
-            v.className = "meta-value";
-            v.textContent = value == null ? "" : String(value);
-
-            grid.append(k, v);
-        }
-
-        return grid;
-    }
-
-    async function cancelDraft(draft) {
-        await api(`/api/v1/drafts/${draft.delivery_id}/cancel`, {
-            method: "POST",
-            body: JSON.stringify({reason: "cancelled from localhost inbox"}),
-        });
-        await loadAll();
-    }
-
-    async function markHandled(draft) {
-        await api(`/api/v1/drafts/${draft.delivery_id}/handled`, {method: "POST"});
-        await loadAll();
-    }
-
-    function renderDraft(draft) {
-        const details = document.createElement("details");
-        details.className = "draft";
-
-        const defaultOpen =
-            state.expandedOverride === "all" ||
-            (state.expandedOverride === null && draft.status === "queued");
-
-        details.open = defaultOpen;
-
-        const summary = document.createElement("summary");
-        summary.innerHTML = `
-        <div class="draft-summary">
-          <div>
-            <div class="draft-title">
-              <span>${escapeHtml(draft.provider)} / ${escapeHtml(draft.role)}</span>
-              <span class="chip ${escapeHtml(draft.status)}">${escapeHtml(draft.status)}</span>
-              <span class="chip">${escapeHtml(draft.capture_source)}</span>
-              <span class="chip">${escapeHtml(draft.body_length)} chars</span>
-              <span class="chip">${escapeHtml(draft.queue_group_name || queueGroupName(draft.queue_group_id || "default"))}</span>
+        function renderSelectedTools() {
+            const draft = selectedDraft();
+            els.selectedPill.textContent = draft ? statusLabel(draft.status) : "None";
+            els.selectedPill.className = `pill ${draft ? statusClass(draft.status) : "off"}`;
+            els.selectedSummary.textContent = draft ? `${providerLabel(draft.provider)} · ${shortId(draft.delivery_id)}` : "Select an engagement";
+            if (!draft) {
+                els.selectedTools.innerHTML = `<div class="empty">No selected engagement.</div>`;
+                return;
+            }
+            const provider = selectedDispatchProvider();
+            els.selectedTools.innerHTML = `
+            <div class="meta-grid">
+                <div class="meta-key">delivery</div><div class="meta-val">${escapeHtml(shortId(draft.delivery_id, 12, 7))}</div>
+                <div class="meta-key">status</div><div class="meta-val">${chipHtml(draft.status)}</div>
+                <div class="meta-key">session</div><div class="meta-val">${escapeHtml(sessionLabel(sessionKey(draft)))}</div>
+                <div class="meta-key">group</div><div class="meta-val">${escapeHtml(queueGroupName(draft.queue_group_id || "default"))}</div>
+                <div class="meta-key">provider</div><div class="meta-val">${escapeHtml(providerLabel(draft.provider))}</div>
             </div>
-            <div class="draft-subtitle">
-              ${escapeHtml(draft.conversation_title || "Untitled conversation")}
-              · ${escapeHtml(shortId(draft.conversation_id || ""))}
-              · ${escapeHtml(draft.turn_testid || "")}
+            <div class="field">
+                <label for="dispatchProviderSelect">Dispatch provider</label>
+                <select id="dispatchProviderSelect">${dispatchProviderOptionsHtml()}</select>
             </div>
-          </div>
-          <div class="draft-summary-right">
-            <div>${escapeHtml(fmtDate(draftSortKey(draft)))}</div>
-            <div>${escapeHtml(shortId(draft.body_hash || "", 8, 4))}</div>
-          </div>
-        </div>
-      `;
-
-        const body = document.createElement("div");
-        body.className = "draft-body";
-
-        body.appendChild(metaGrid(draft));
-
-        const textarea = document.createElement("textarea");
-        textarea.className = "draft-text";
-        textarea.value = draftMarkdown(draft);
-        textarea.spellcheck = false;
-        body.appendChild(textarea);
-
-        const actions = document.createElement("div");
-        actions.className = "actions";
-
-        const copyMarkdownButton = button("Copy Markdown", () => copyText(draftMarkdown(draft), copyMarkdownButton, "Copied Markdown"));
-        const copyPlainButton = button("Copy Plain", () => copyText(draftPlain(draft), copyPlainButton, "Copied Plain"));
-        const copyRichButton = button("Copy Rich", () => copyRich(draft, copyRichButton));
-        const copyBodyButton = button("Copy body only", () => copyText(extractBodyOnly(draftMarkdown(draft)), copyBodyButton));
-        const copyMetaButton = button("Copy metadata", () => copyText(metadataText(draft), copyMetaButton));
-        const copyDiagButton = button("Copy diagnostics", () => copyText(diagnosticsText(draft), copyDiagButton));
-        const openButton = button("Open source", () => window.open(draft.conversation_url, "_blank"));
-
-        actions.append(copyMarkdownButton, copyPlainButton, copyRichButton, copyBodyButton, copyMetaButton, copyDiagButton, openButton);
-
-        if (draft.status === "queued") {
-            const deleteButton = button("Delete from queue", async () => {
-                deleteButton.disabled = true;
-                await cancelDraft(draft);
-            });
-            deleteButton.classList.add("danger");
-            actions.append(deleteButton);
-        }
-
-        if (draft.status !== "handled" && draft.status !== "cancelled") {
-            const handledButton = button("Mark handled", async () => {
-                handledButton.disabled = true;
-                await markHandled(draft);
-            });
-            actions.append(handledButton);
-        } else if (draft.status === "handled") {
-            const handledChip = document.createElement("span");
-            handledChip.className = "chip handled";
-            handledChip.textContent = `Handled${draft.acknowledged_at ? " · " + fmtDate(draft.acknowledged_at) : ""}`;
-            actions.append(handledChip);
-        } else if (draft.status === "cancelled") {
-            const cancelledChip = document.createElement("span");
-            cancelledChip.className = "chip cancelled";
-            cancelledChip.textContent = `Cancelled${draft.cancelled_at ? " · " + fmtDate(draft.cancelled_at) : ""}`;
-            actions.append(cancelledChip);
-        }
-
-        body.appendChild(actions);
-
-        const diagnostics = document.createElement("div");
-        diagnostics.className = "diagnostics";
-        diagnostics.textContent = diagnosticsText(draft);
-        body.appendChild(diagnostics);
-
-        details.append(summary, body);
-        return details;
-    }
-
-    function button(text, onclick) {
-        const b = document.createElement("button");
-        b.className = "button";
-        b.type = "button";
-        b.textContent = text;
-        b.onclick = onclick;
-        return b;
-    }
-
-    function renderSessionGroup(group) {
-        const first = group.items[0];
-        const queued = group.items.filter(d => d.status === "queued").length;
-        const inserted = group.items.filter(d => d.status === "draft_inserted").length;
-        const handled = group.items.filter(d => d.status === "handled").length;
-        const cancelled = group.items.filter(d => d.status === "cancelled").length;
-        const failed = group.items.filter(d => d.status === "failed").length;
-
-        const section = document.createElement("section");
-        section.className = "session-group";
-
-        const header = document.createElement("div");
-        header.className = "session-header";
-        header.innerHTML = `
-        <div>
-          <div class="session-title">${escapeHtml(first.conversation_title || "Untitled conversation")}</div>
-          <div class="session-meta">
-            queue=${escapeHtml(first.queue_group_name || queueGroupName(first.queue_group_id || "default"))}
-            <br />
-            source_session_id=${escapeHtml(sessionKey(first))}
-            <br />
-            conversation_id=${escapeHtml(first.conversation_id || "")}
-            ${first.gizmo_id ? `<br />gizmo_id=${escapeHtml(first.gizmo_id)}` : ""}
-          </div>
-        </div>
-        <div class="session-actions">
-          <span class="chip queued">${queued} queued</span>
-          <span class="chip draft_inserted">${inserted} inserted</span>
-          <span class="chip handled">${handled} handled</span>
-          <span class="chip cancelled">${cancelled} cancelled</span>
-          <span class="chip failed">${failed} failed</span>
-          <span class="chip">${group.items.length} total</span>
-        </div>
-      `;
-
-        const list = document.createElement("div");
-        list.className = "draft-list";
-
-        for (const draft of group.items) {
-            list.appendChild(renderDraft(draft));
-        }
-
-        section.append(header, list);
-        return section;
-    }
-
-    function render() {
-        renderStats();
-        populateFilters();
-        syncTabs();
-
-        const drafts = filteredDrafts();
-        const groups = groupDrafts(drafts);
-
-        els.drafts.innerHTML = "";
-
-        if (!groups.length) {
-            const empty = document.createElement("div");
-            empty.className = "empty";
-            empty.innerHTML = `
-          <strong>No drafts match the current filters.</strong>
-          <div class="small">Try All, clear filters, or refresh after capture.</div>
+            <div class="split-actions">
+                <button class="button slim" data-action="select-scroll" data-delivery-id="${escapeHtml(draft.delivery_id)}">Show in explorer</button>
+                <button class="button slim" data-action="copy-wrapped" data-delivery-id="${escapeHtml(draft.delivery_id)}">Copy routed text</button>
+                <button class="button slim" data-action="copy-source" data-delivery-id="${escapeHtml(draft.delivery_id)}">Copy source text</button>
+                <button class="button slim ok" data-action="dispatch" data-delivery-id="${escapeHtml(draft.delivery_id)}" ${provider ? "" : "disabled"}>Dispatch</button>
+                <button class="button slim" data-action="handled" data-delivery-id="${escapeHtml(draft.delivery_id)}">Mark handled</button>
+                <button class="button slim danger" data-action="cancel" data-delivery-id="${escapeHtml(draft.delivery_id)}">Cancel</button>
+            </div>
+            <div class="hint">Actions operate on the selected delivery only. Browser insertion remains extension/content-script-owned.</div>
         `;
-            els.drafts.appendChild(empty);
-            setStatus(`Showing 0 drafts from ${state.drafts.length} stored drafts.`);
-            return;
+            const select = byId("dispatchProviderSelect");
+            if (select) {
+                select.value = state.dispatchProviderId;
+                select.onchange = () => {
+                    state.dispatchProviderId = select.value;
+                    localStorage.setItem(STORAGE_KEYS.providerId, state.dispatchProviderId);
+                    renderSelectedTools();
+                    renderProviders();
+                };
+            }
         }
 
-        for (const group of groups) {
-            els.drafts.appendChild(renderSessionGroup(group));
+        function dispatchProviderOptionsHtml() {
+            const providers = dispatchCapableProviders();
+            if (!providers.length) return `<option value="">No dispatch-capable providers</option>`;
+            return providers.map(provider => `<option value="${escapeHtml(provider.provider_id)}">${escapeHtml(providerLabel(provider))} · ${escapeHtml(provider.availability || "unknown")}</option>`).join("");
         }
 
-        setStatus(`Showing ${drafts.length} drafts across ${groups.length} session/queue group${groups.length === 1 ? "" : "s"}.`);
-    }
-
-    function syncTabs() {
-        for (const tab of els.tabs) {
-            tab.classList.toggle("active", tab.dataset.status === state.statusFilter);
-        }
-    }
-
-    async function loadQueueGroups() {
-        const data = await api("/api/v1/queue-groups");
-        state.queueGroups = data.queue_groups || [];
-    }
-
-    async function loadDrafts() {
-        const params = new URLSearchParams();
-        params.set("include_handled", "true");
-        if (state.queueGroupFilter !== "all") {
-            params.set("queue_group_id", state.queueGroupFilter);
-        }
-        const data = await api(`/api/v1/drafts?${params.toString()}`);
-        state.drafts = data.drafts || [];
-    }
-
-    async function loadAll() {
-        setStatus("Loading drafts…");
-        await loadQueueGroups();
-        await loadDrafts();
-        render();
-    }
-
-    async function clearQueued({allGroups = false} = {}) {
-        const groupId = allGroups ? null : (state.queueGroupFilter === "all" ? null : state.queueGroupFilter);
-        const label = allGroups ? "all queued drafts" : (groupId ? `queued drafts in ${queueGroupName(groupId)}` : "all visible queued drafts");
-
-        if (!confirm(`Clear ${label}? This cancels queued deliveries but preserves captured message history.`)) {
-            return;
+        function chipHtml(status, extraClass = "") {
+            return `<span class="chip ${escapeHtml(statusClass(status))} ${escapeHtml(extraClass)}">${escapeHtml(statusLabel(status))}</span>`;
         }
 
-        const body = {
-            queue_group_id: groupId,
-            provider: state.providerFilter === "all" ? null : state.providerFilter,
-            reason: allGroups ? "cleared all queues from localhost inbox" : "cleared selected queue from localhost inbox",
-        };
-
-        const response = await api("/api/v1/drafts/clear-queued", {
-            method: "POST",
-            body: JSON.stringify(body),
-        });
-
-        await loadAll();
-        setStatus(`Cancelled ${response.cancelled_count} queued draft${response.cancelled_count === 1 ? "" : "s"}.`);
-    }
-
-    async function createQueueGroup() {
-        const name = els.newQueueGroupName.value.trim();
-        if (!name) {
-            setStatus("Enter a queue group name.");
-            return;
+        function renderOverview() {
+            const visible = filteredDrafts();
+            const serviceOk = state.services.length ? state.services.every(s => s.supervisor_ok && s.health_ok) : false;
+            const providers = dispatchCapableProviders();
+            const readyProviders = providers.filter(p => p.availability === "ready").length;
+            const queued = metricValue("queued_drafts", state.drafts.filter(d => d.status === "queued").length);
+            const failed = metricValue("failed", state.drafts.filter(d => d.status === "failed").length);
+            const tone = failed ? "warn" : "ready";
+            const section = byId("overviewSection");
+            section.className = `section state-${tone}`;
+            els.overviewPill.textContent = failed ? `${failed} failed` : "Ready";
+            els.overviewPill.className = `pill ${failed ? "warn" : "ready"}`;
+            els.overviewSummary.textContent = `${metricValue("deliveries", state.drafts.length)} deliveries · ${queued} queued · ${readyProviders}/${providers.length} providers`;
+            els.overviewBody.innerHTML = `
+            <div class="metric-grid">
+                ${metricCard("Sessions", metricValue("sessions", buildSessions().length), `${buildSessions().length} visible`, "session")}
+                ${metricCard("Groups", metricValue("queue_groups", state.queueGroups.length), `${state.queueGroups.length} loaded`, "group")}
+                ${metricCard("Messages", metricValue("messages"), "captured source messages", "message")}
+                ${metricCard("Deliveries", metricValue("deliveries", state.drafts.length), `${visible.length} visible`, "delivery")}
+                ${metricCard("Queued", queued, "pending local drafts", "queued")}
+                ${metricCard("Responses", metricValue("response_received", state.drafts.filter(d => d.status === "response_received").length), "provider return lane", "response_received")}
+                ${metricCard("Handled", metricValue("handled", state.drafts.filter(d => d.status === "handled").length), "completed records", "handled")}
+                ${metricCard("Failed", failed, "needs review", "failed")}
+            </div>
+            <div class="table">
+                <div class="table-row compact">
+                    <div class="table-main"><div class="record-title">Daemon</div><div class="record-sub">${escapeHtml(state.statusDetail?.app || "local_llm_router")} · ${escapeHtml(state.statusDetail?.version || "unknown version")}</div></div>
+                    <span class="pill ${state.statusDetail ? "ready" : "warn"}">${state.statusDetail ? "reachable" : "unavailable"}</span>
+                    <div class="record-sub">${escapeHtml(state.statusDetail?.database_path || "database path unavailable")}</div>
+                    <button class="button slim" data-action="copy-status-json">Copy status</button>
+                </div>
+                <div class="table-row compact">
+                    <div class="table-main"><div class="record-title">Local services</div><div class="record-sub">Supervisor state and health endpoints are separate facts.</div></div>
+                    <span class="pill ${serviceOk ? "ok" : "warn"}">${serviceOk ? "healthy" : "check"}</span>
+                    <div class="record-sub">${state.services.map(s => `${s.service_id}:${s.supervisor_state || "?"}/${s.health_ok ? "health" : "no-health"}`).join(" · ") || "service API unavailable"}</div>
+                    <button class="button slim" data-action="refresh-services">Refresh services</button>
+                </div>
+            </div>
+        `;
         }
 
-        const response = await api("/api/v1/queue-groups", {
-            method: "POST",
-            body: JSON.stringify({name}),
-        });
-
-        els.newQueueGroupName.value = "";
-        await loadAll();
-
-        if (response.queue_group?.queue_group_id) {
-            state.queueGroupFilter = response.queue_group.queue_group_id;
-            localStorage.setItem("llmr.queueGroupFilter", state.queueGroupFilter);
-            render();
+        function metricCard(label, value, sub, filter) {
+            return `
+            <div class="metric-card clickable ${state.filters.status === filter ? "active" : ""}" data-action="metric-filter" data-filter="${escapeHtml(filter)}">
+                <div class="metric-value">${escapeHtml(value)}</div>
+                <div class="metric-label">${escapeHtml(label)}</div>
+                <div class="metric-sub">${escapeHtml(sub)}</div>
+            </div>`;
         }
 
-        setStatus(`Created queue group: ${response.queue_group?.name || name}`);
-    }
-
-    async function deleteSelectedQueueGroup() {
-        const groupId = state.queueGroupFilter;
-        if (!groupId || groupId === "all") {
-            setStatus("Select a specific queue group before deleting.");
-            return;
-        }
-        if (groupId === "default") {
-            setStatus("Default queue cannot be deleted.");
-            return;
-        }
-
-        const groupName = queueGroupName(groupId);
-        if (!confirm(`Delete queue group "${groupName}"? Queued drafts in that group will be cancelled and sessions will fall back to Default queue.`)) {
-            return;
+        function renderEngagements() {
+            const rows = filteredDrafts();
+            els.engagementPill.textContent = `${rows.length} visible`;
+            els.engagementPill.className = rows.length ? "pill ready" : "pill off";
+            els.engagementSummary.textContent = `${state.drafts.length} loaded delivery records · ${state.filters.display}`;
+            if (!rows.length) {
+                els.engagementBody.innerHTML = `<div class="empty"><strong>No engagement records match the current filters.</strong><div class="hint">Clear filters, refresh after capture, or inspect diagnostics for API availability.</div></div>`;
+                return;
+            }
+            if (state.filters.display === "compact") {
+                els.engagementBody.innerHTML = `<div class="table">${rows.map(renderDraftTableRow).join("")}</div>`;
+                return;
+            }
+            els.engagementBody.innerHTML = `<div class="list">${rows.map(renderDraftCard).join("")}</div>`;
         }
 
-        const response = await api(`/api/v1/queue-groups/${encodeURIComponent(groupId)}/delete`, {
-            method: "POST",
-            body: JSON.stringify({
-                cancel_queued: true,
-                reason: "deleted from localhost inbox",
-            }),
-        });
+        function renderDraftCard(draft) {
+            const selected = draft.delivery_id === state.selectedDeliveryId;
+            const providerResponse = isProviderResponseDraft(draft);
+            const text = primaryText(draft);
+            return `
+            <article class="record-card ${selected ? "selected" : ""}" id="delivery-${escapeHtml(draft.delivery_id)}" data-delivery-id="${escapeHtml(draft.delivery_id)}">
+                <div class="record-head">
+                    <div class="table-main">
+                        <div class="record-title">${escapeHtml(draft.conversation_title || sessionLabel(sessionKey(draft)) || "Untitled engagement")}</div>
+                        <div class="record-sub">${escapeHtml(providerResponse ? "provider response" : `${draft.provider || "unknown"} capture`)} · ${escapeHtml(draft.role || "unknown role")} · ${escapeHtml(fmtDate(draft.queued_at || draft.captured_at))}</div>
+                    </div>
+                    <div class="split-actions">${chipHtml(draft.status)}<span class="chip">${escapeHtml(queueGroupName(draft.queue_group_id || "default"))}</span></div>
+                </div>
+                <div class="record-sub">delivery=${escapeHtml(shortId(draft.delivery_id, 13, 7))} · message=${escapeHtml(shortId(draft.message_id, 13, 7))} · hash=${escapeHtml(draft.body_hash || "")}</div>
+                <div class="record-text">${escapeHtml(text.slice(0, 900) || "No text body available.")}</div>
+                <div class="split-actions">
+                    <button class="button slim primary" data-action="select" data-delivery-id="${escapeHtml(draft.delivery_id)}">Inspect</button>
+                    <button class="button slim" data-action="copy-wrapped" data-delivery-id="${escapeHtml(draft.delivery_id)}">Copy routed</button>
+                    <button class="button slim" data-action="copy-source" data-delivery-id="${escapeHtml(draft.delivery_id)}">Copy source</button>
+                    <button class="button slim ok" data-action="dispatch" data-delivery-id="${escapeHtml(draft.delivery_id)}">Dispatch</button>
+                    <button class="button slim" data-action="handled" data-delivery-id="${escapeHtml(draft.delivery_id)}">Handled</button>
+                    <button class="button slim danger" data-action="cancel" data-delivery-id="${escapeHtml(draft.delivery_id)}">Cancel</button>
+                </div>
+            </article>`;
+        }
 
-        state.queueGroupFilter = "all";
-        localStorage.setItem("llmr.queueGroupFilter", state.queueGroupFilter);
+        function renderDraftTableRow(draft) {
+            const selected = draft.delivery_id === state.selectedDeliveryId;
+            return `
+            <div class="table-row compact ${selected ? "selected" : ""}" id="delivery-${escapeHtml(draft.delivery_id)}">
+                <div class="table-main">
+                    <div class="record-title">${escapeHtml(draft.conversation_title || sessionLabel(sessionKey(draft)) || "Untitled")}</div>
+                    <div class="record-sub">${escapeHtml(shortId(draft.delivery_id, 13, 7))} · ${escapeHtml(fmtDate(draft.queued_at || draft.captured_at))}</div>
+                </div>
+                ${chipHtml(draft.status)}
+                <div class="record-sub">${escapeHtml(providerLabel(draft.provider))} · ${escapeHtml(queueGroupName(draft.queue_group_id || "default"))}</div>
+                <button class="button slim primary" data-action="select" data-delivery-id="${escapeHtml(draft.delivery_id)}">Inspect</button>
+            </div>`;
+        }
 
-        await loadAll();
-        setStatus(`Deleted queue group. Cancelled queued drafts: ${response.cancelled_count || 0}.`);
-    }
+        function buildSessions() {
+            const byId = new Map();
+            for (const session of state.providerSessions) {
+                byId.set(session.source_session_id, {
+                    ...session,
+                    draft_count: 0,
+                    queued_count: 0,
+                    failed_count: 0,
+                    response_count: 0
+                });
+            }
+            for (const draft of state.drafts) {
+                const id = sessionKey(draft);
+                const existing = byId.get(id) || {
+                    source_session_id: id,
+                    provider: draft.provider,
+                    label: draft.conversation_title || id,
+                    conversation_id: draft.conversation_id,
+                    gizmo_id: draft.gizmo_id,
+                    conversation_url: draft.conversation_url,
+                    conversation_title: draft.conversation_title,
+                    queue_group_id: draft.queue_group_id || "default",
+                    queue_group_name: draft.queue_group_name || queueGroupName(draft.queue_group_id || "default"),
+                    last_seen_at: draft.captured_at,
+                    draft_count: 0,
+                    queued_count: 0,
+                    failed_count: 0,
+                    response_count: 0,
+                };
+                existing.draft_count += 1;
+                if (draft.status === "queued") existing.queued_count += 1;
+                if (draft.status === "failed") existing.failed_count += 1;
+                if (isProviderResponseDraft(draft)) existing.response_count += 1;
+                if (!existing.last_seen_at || String(draft.captured_at || "") > String(existing.last_seen_at || "")) existing.last_seen_at = draft.captured_at;
+                byId.set(id, existing);
+            }
+            return [...byId.values()].sort((a, b) => String(b.last_seen_at || "").localeCompare(String(a.last_seen_at || "")));
+        }
 
-    function bindEvents() {
-        els.refresh.onclick = () => loadAll().catch(showError);
+        function renderSessions() {
+            const sessions = buildSessions();
+            els.sessionsPill.textContent = String(sessions.length);
+            els.sessionsBody.innerHTML = sessions.length ? `<div class="list">${sessions.map(renderSessionCard).join("")}</div>` : `<div class="empty">No known sessions yet.</div>`;
+        }
 
-        els.expandAll.onclick = () => {
-            state.expandedOverride = "all";
-            render();
-        };
+        function renderSessionCard(session) {
+            const selected = state.filters.session === session.source_session_id;
+            const groupOptions = state.queueGroups.map(group => `<option value="${escapeHtml(group.queue_group_id)}" ${group.queue_group_id === (session.queue_group_id || "default") ? "selected" : ""}>${escapeHtml(group.name)}${group.is_default ? " · default" : ""}</option>`).join("");
+            return `
+            <article class="record-card ${selected ? "selected" : ""}">
+                <div class="record-head">
+                    <div class="table-main">
+                        <div class="record-title">${escapeHtml(sessionLabel(session))}</div>
+                        <div class="record-sub">${escapeHtml(shortId(session.source_session_id, 16, 8))} · ${escapeHtml(session.provider || "unknown provider")}</div>
+                    </div>
+                    <div class="split-actions"><span class="chip">${escapeHtml(queueGroupName(session.queue_group_id || "default"))}</span><span class="chip queued">${session.queued_count || 0} queued</span><span class="chip failed">${session.failed_count || 0} failed</span></div>
+                </div>
+                <div class="meta-grid">
+                    <div class="meta-key">conversation</div><div class="meta-val">${escapeHtml(session.conversation_id || "")}</div>
+                    <div class="meta-key">gizmo</div><div class="meta-val">${escapeHtml(session.gizmo_id || "")}</div>
+                    <div class="meta-key">last seen</div><div class="meta-val">${escapeHtml(fmtDate(session.last_seen_at))}</div>
+                    <div class="meta-key">label source</div><div class="meta-val">${escapeHtml(session.label_source || "")}</div>
+                </div>
+                <div class="three-col">
+                    <input data-session-label-input="${escapeHtml(session.source_session_id)}" placeholder="Session alias" value="${escapeHtml(session.manual_alias || session.label || "")}" />
+                    <select data-session-group-select="${escapeHtml(session.source_session_id)}">${groupOptions}</select>
+                    <button class="button slim" data-action="save-session" data-session-id="${escapeHtml(session.source_session_id)}" data-provider="${escapeHtml(session.provider || "chatgpt")}">Save session</button>
+                </div>
+                <div class="split-actions">
+                    <button class="button slim" data-action="filter-session" data-session-id="${escapeHtml(session.source_session_id)}">Filter to session</button>
+                    ${session.conversation_url ? `<button class="button slim" data-action="open-url" data-url="${escapeHtml(session.conversation_url)}">Open URL</button>` : ""}
+                </div>
+            </article>`;
+        }
 
-        els.collapseAll.onclick = () => {
-            state.expandedOverride = "none";
-            render();
-            document.querySelectorAll("details.draft").forEach(d => d.open = false);
-        };
+        function buildGroupStats() {
+            const map = new Map();
+            for (const group of state.queueGroups) {
+                map.set(group.queue_group_id, {
+                    ...group,
+                    sessions: 0,
+                    deliveries: 0,
+                    queued: 0,
+                    failed: 0,
+                    responses: 0,
+                    last_activity: group.updated_at
+                });
+            }
+            for (const session of buildSessions()) {
+                const id = session.queue_group_id || "default";
+                const item = map.get(id) || {
+                    queue_group_id: id,
+                    name: queueGroupName(id),
+                    status: "active",
+                    is_default: id === "default",
+                    sessions: 0,
+                    deliveries: 0,
+                    queued: 0,
+                    failed: 0,
+                    responses: 0
+                };
+                item.sessions += 1;
+                map.set(id, item);
+            }
+            for (const draft of state.drafts) {
+                const id = draft.queue_group_id || "default";
+                const item = map.get(id) || {
+                    queue_group_id: id,
+                    name: queueGroupName(id),
+                    status: "active",
+                    is_default: id === "default",
+                    sessions: 0,
+                    deliveries: 0,
+                    queued: 0,
+                    failed: 0,
+                    responses: 0
+                };
+                item.deliveries += 1;
+                if (draft.status === "queued") item.queued += 1;
+                if (draft.status === "failed") item.failed += 1;
+                if (isProviderResponseDraft(draft)) item.responses += 1;
+                if (!item.last_activity || String(draft.queued_at || draft.captured_at || "") > String(item.last_activity || "")) item.last_activity = draft.queued_at || draft.captured_at;
+                map.set(id, item);
+            }
+            return [...map.values()].sort((a, b) => (b.is_default ? 0 : 1) - (a.is_default ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
+        }
 
-        els.clearVisibleQueue.onclick = () => clearQueued({allGroups: false}).catch(showError);
-        els.clearAllQueues.onclick = () => clearQueued({allGroups: true}).catch(showError);
-        els.createQueueGroup.onclick = () => createQueueGroup().catch(showError);
-        els.deleteSelectedGroup.onclick = () => deleteSelectedQueueGroup().catch(showError);
+        function renderGroups() {
+            const groups = buildGroupStats();
+            els.groupsPill.textContent = String(groups.length);
+            els.groupsBody.innerHTML = groups.length ? `<div class="list">${groups.map(renderGroupCard).join("")}</div>` : `<div class="empty">No queue groups loaded.</div>`;
+        }
 
-        els.clearFilters.onclick = () => {
-            state.statusFilter = "queued";
-            state.providerFilter = "all";
-            state.queueGroupFilter = "all";
-            state.sessionFilter = "all";
-            state.search = "";
-            state.expandedOverride = null;
-            els.search.value = "";
-            localStorage.setItem("llmr.statusFilter", state.statusFilter);
-            localStorage.setItem("llmr.queueGroupFilter", state.queueGroupFilter);
-            loadAll().catch(showError);
-        };
+        function renderGroupCard(group) {
+            const selected = state.filters.queueGroup === group.queue_group_id;
+            return `
+            <article class="record-card ${selected ? "selected" : ""}">
+                <div class="record-head">
+                    <div class="table-main"><div class="record-title">${escapeHtml(group.name || group.queue_group_id)}</div><div class="record-sub">${escapeHtml(group.queue_group_id)} · ${group.is_default ? "default" : escapeHtml(group.status || "active")}</div></div>
+                    <div class="split-actions"><span class="chip queued">${group.queued || 0} queued</span><span class="chip">${group.deliveries || 0} deliveries</span><span class="chip">${group.sessions || 0} sessions</span><span class="chip failed">${group.failed || 0} failed</span></div>
+                </div>
+                <div class="hint">Last activity: ${escapeHtml(fmtDate(group.last_activity || group.updated_at || group.created_at))}</div>
+                <div class="split-actions">
+                    <button class="button slim" data-action="filter-group" data-group-id="${escapeHtml(group.queue_group_id)}">Filter to group</button>
+                    <button class="button slim warn" data-action="clear-group-queued" data-group-id="${escapeHtml(group.queue_group_id)}">Clear queued</button>
+                </div>
+            </article>`;
+        }
 
-        els.search.oninput = () => {
-            state.search = els.search.value;
-            render();
-        };
+        function renderProviders() {
+            const dispatchable = dispatchCapableProviders();
+            const ready = state.providers.filter(p => p.availability === "ready").length;
+            els.providersPill.textContent = `${ready}/${state.providers.length} ready`;
+            els.providersPill.className = `pill ${ready === state.providers.length ? "ready" : "warn"}`;
+            const discovery = state.discovery ? `
+            <div class="record-card">
+                <div class="record-head"><div><div class="record-title">Provider discovery</div><div class="record-sub">${escapeHtml(state.discovery.last_run_at ? `last run ${fmtDate(state.discovery.last_run_at)}` : "no run recorded")}</div></div><span class="pill ${state.discovery.running ? "warn" : "off"}">${state.discovery.running ? "running" : "idle"}</span></div>
+                <div class="split-actions"><button class="button slim" data-action="run-discovery">Run discovery</button><button class="button slim" data-action="copy-discovery-json">Copy discovery JSON</button></div>
+            </div>` : "";
+            els.providersBody.innerHTML = `
+            <div class="field"><label for="providerActionSelect">Default dispatch provider</label><select id="providerActionSelect">${dispatchProviderOptionsHtml()}</select></div>
+            ${discovery}
+            <div class="list">${state.providers.map(renderProviderCard).join("") || `<div class="empty">No providers loaded.</div>`}</div>
+        `;
+            const select = byId("providerActionSelect");
+            if (select) {
+                select.value = state.dispatchProviderId;
+                select.onchange = () => {
+                    state.dispatchProviderId = select.value;
+                    localStorage.setItem(STORAGE_KEYS.providerId, state.dispatchProviderId);
+                    renderSelectedTools();
+                    renderProviders();
+                };
+            }
+        }
 
-        els.providerFilter.onchange = () => {
-            state.providerFilter = els.providerFilter.value;
-            render();
-        };
+        function renderProviderCard(provider) {
+            const queuedForProvider = state.drafts.filter(d => d.provider === provider.provider_id && d.status === "queued").length;
+            const generated = state.drafts.filter(d => d.provider === provider.provider_id && d.provider !== "chatgpt").length;
+            return `
+            <article class="record-card ${state.dispatchProviderId === provider.provider_id ? "selected" : ""}">
+                <div class="record-head">
+                    <div class="table-main"><div class="record-title">${escapeHtml(providerLabel(provider))}</div><div class="record-sub">${escapeHtml(provider.provider_id)} · ${escapeHtml(provider.provider_type)} · ${escapeHtml(provider.availability || "unknown")}</div></div>
+                    <div class="split-actions"><span class="pill ${provider.enabled ? "ready" : "off"}">${provider.enabled ? "enabled" : "disabled"}</span><span class="pill ${provider.capabilities?.can_dispatch_request ? "ok" : "off"}">${provider.capabilities?.can_dispatch_request ? "dispatch" : "no dispatch"}</span></div>
+                </div>
+                <div class="meta-grid">
+                    <div class="meta-key">model</div><div class="meta-val">${escapeHtml(provider.config?.model || "")}</div>
+                    <div class="meta-key">base_url</div><div class="meta-val">${escapeHtml(provider.config?.base_url || "")}</div>
+                    <div class="meta-key">queued</div><div class="meta-val">${queuedForProvider}</div>
+                    <div class="meta-key">generated</div><div class="meta-val">${generated}</div>
+                </div>
+                <div class="split-actions">
+                    <button class="button slim" data-action="select-provider" data-provider-id="${escapeHtml(provider.provider_id)}">Use for dispatch</button>
+                    <button class="button slim" data-action="probe-provider" data-provider-id="${escapeHtml(provider.provider_id)}">Probe</button>
+                    <button class="button slim" data-action="copy-provider-json" data-provider-id="${escapeHtml(provider.provider_id)}">Copy JSON</button>
+                </div>
+            </article>`;
+        }
 
-        els.queueGroupFilter.onchange = () => {
-            state.queueGroupFilter = els.queueGroupFilter.value;
-            localStorage.setItem("llmr.queueGroupFilter", state.queueGroupFilter);
-            loadAll().catch(showError);
-        };
+        function renderServices() {
+            const okCount = state.services.filter(s => s.supervisor_ok && s.health_ok).length;
+            els.servicesPill.textContent = state.services.length ? `${okCount}/${state.services.length} healthy` : "Unavailable";
+            els.servicesPill.className = `pill ${okCount === state.services.length && state.services.length ? "ok" : "warn"}`;
+            byId("servicesSection").className = `section state-${okCount === state.services.length && state.services.length ? "ready" : "warn"}`;
+            els.servicesBody.innerHTML = state.services.length ? `<div class="list">${state.services.map(renderServiceCard).join("")}</div>` : `<div class="empty">Local service status API unavailable or disabled.</div>`;
+        }
 
-        els.sessionFilter.onchange = () => {
-            state.sessionFilter = els.sessionFilter.value;
-            render();
-        };
+        function renderServiceCard(service) {
+            const healthy = service.supervisor_ok && service.health_ok;
+            return `
+            <article class="record-card">
+                <div class="record-head">
+                    <div class="table-main"><div class="record-title">${escapeHtml(service.label || service.service_id)}</div><div class="record-sub">${escapeHtml(service.service_id)} · ${escapeHtml(service.authority)} · ${escapeHtml(service.supervisor_name || "")}</div></div>
+                    <span class="pill ${healthy ? "ok" : "warn"}">${healthy ? "healthy" : "check"}</span>
+                </div>
+                <div class="meta-grid">
+                    <div class="meta-key">supervisor</div><div class="meta-val">${escapeHtml(service.supervisor_state || "unknown")} · ok=${Boolean(service.supervisor_ok)}</div>
+                    <div class="meta-key">health</div><div class="meta-val">${escapeHtml(service.health_status || service.health_error || "unknown")} · ok=${Boolean(service.health_ok)}</div>
+                    <div class="meta-key">url</div><div class="meta-val">${escapeHtml(service.health_url || "")}</div>
+                    <div class="meta-key">command</div><div class="meta-val">${escapeHtml(service.code_svc_command || "code-svc")}</div>
+                </div>
+                <div class="split-actions">
+                    <button class="button slim" data-action="service-status" data-service-id="${escapeHtml(service.service_id)}">Status</button>
+                    <button class="button slim ok" data-action="service-start" data-service-id="${escapeHtml(service.service_id)}">Start</button>
+                    <button class="button slim warn" data-action="service-restart" data-service-id="${escapeHtml(service.service_id)}">Restart</button>
+                    <button class="button slim danger" data-action="service-stop" data-service-id="${escapeHtml(service.service_id)}">Stop</button>
+                </div>
+            </article>`;
+        }
 
-        for (const tab of els.tabs) {
-            tab.onclick = () => {
-                setStatusFilter(tab.dataset.status);
+        function renderWrappers() {
+            const selected = selectedWrapper();
+            els.wrappersPill.textContent = selected ? "On" : "Off";
+            els.wrappersPill.className = `pill ${selected ? "ready" : "off"}`;
+            const draft = selectedDraft();
+            els.wrappersBody.innerHTML = `
+            <div class="field"><label for="wrapperSelect">Selected prompt wrapper</label><select id="wrapperSelect"><option value="">No wrapper</option>${state.promptWrappers.map(w => `<option value="${escapeHtml(w.wrapper_id)}">${escapeHtml(w.label || w.wrapper_id)}</option>`).join("")}</select></div>
+            <div class="hint">Prompt wrappers are route-time transforms. Original capture and delivery ownership remain unchanged.</div>
+            <div class="split-actions">
+                <button class="button slim" data-action="preview-wrapper" ${draft && selected ? "" : "disabled"}>Preview on selected</button>
+                <button class="button slim" data-action="copy-wrapper-json">Copy wrappers JSON</button>
+            </div>
+            <div id="wrapperPreview"></div>
+            <div class="list">${state.promptWrappers.map(renderWrapperCard).join("") || `<div class="empty">No prompt wrappers configured.</div>`}</div>
+        `;
+            const select = byId("wrapperSelect");
+            if (select) {
+                select.value = state.selectedWrapperId;
+                select.onchange = () => {
+                    state.selectedWrapperId = select.value;
+                    if (state.selectedWrapperId) localStorage.setItem(STORAGE_KEYS.wrapperId, state.selectedWrapperId);
+                    else localStorage.removeItem(STORAGE_KEYS.wrapperId);
+                    renderWrappers();
+                    renderSelectedTools();
+                };
+            }
+        }
+
+        function renderWrapperCard(wrapper) {
+            return `
+            <article class="record-card ${state.selectedWrapperId === wrapper.wrapper_id ? "selected" : ""}">
+                <div class="record-head"><div><div class="record-title">${escapeHtml(wrapper.label || wrapper.wrapper_id)}</div><div class="record-sub">${escapeHtml(wrapper.wrapper_id)} · transform=${escapeHtml(wrapper.transform || "none")}</div></div><span class="pill ${state.selectedWrapperId === wrapper.wrapper_id ? "ready" : "off"}">${state.selectedWrapperId === wrapper.wrapper_id ? "selected" : "available"}</span></div>
+                <div class="hint">${escapeHtml(wrapper.description || "No description.")}</div>
+                <div class="split-actions"><button class="button slim" data-action="select-wrapper" data-wrapper-id="${escapeHtml(wrapper.wrapper_id)}">Select</button></div>
+            </article>`;
+        }
+
+        function renderEvents() {
+            els.eventsPill.textContent = state.eventSource ? "Live" : "Off";
+            els.eventsPill.className = `pill ${state.eventSource ? "ready" : "off"}`;
+            els.eventsBody.innerHTML = `
+            <div class="split-actions"><button class="button slim" data-action="connect-events">Connect</button><button class="button slim" data-action="disconnect-events">Disconnect</button><button class="button slim" data-action="clear-events">Clear</button></div>
+            <div class="timeline">${state.liveEvents.map(renderEventItem).join("") || `<div class="empty">No live events captured in this page session.</div>`}</div>
+        `;
+        }
+
+        function renderEventItem(event) {
+            const error = String(event.event_type || "").includes("failed") || event.ok === false;
+            const warn = String(event.event_type || "").includes("cancel") || String(event.event_type || "").includes("clear");
+            return `<div class="timeline-item"><span class="dot ${error ? "error" : warn ? "warn" : ""}"></span><div><div class="record-title">${escapeHtml(event.event_type || "event")}</div><div class="record-sub">${escapeHtml(fmtDate(event.created_at || event.received_at))} · ${escapeHtml(shortId(event.event_id || ""))}</div><pre class="raw-box">${escapeHtml(safeJson(event))}</pre></div></div>`;
+        }
+
+        function renderDiagnostics() {
+            const selected = selectedDraft();
+            els.diagnosticsBody.innerHTML = `
+            <div class="two-col">
+                <button class="button slim" data-action="copy-all-json">Copy loaded state JSON</button>
+                <button class="button slim" data-action="copy-selected-json" ${selected ? "" : "disabled"}>Copy selected JSON</button>
+            </div>
+            <div class="meta-grid">
+                <div class="meta-key">last loaded</div><div class="meta-val">${escapeHtml(fmtDate(state.lastLoadedAt))}</div>
+                <div class="meta-key">database</div><div class="meta-val">${escapeHtml(state.statusDetail?.database_path || "")}</div>
+                <div class="meta-key">format capture</div><div class="meta-val">${escapeHtml(state.statusDetail?.format_capture_version || "")}</div>
+                <div class="meta-key">visible errors</div><div class="meta-val">${state.errors.length}</div>
+            </div>
+            <h3>Routes</h3>
+            <pre class="raw-box">${escapeHtml(safeJson(state.statusDetail?.routes || []))}</pre>
+            <h3>Recent API errors</h3>
+            <pre class="raw-box">${escapeHtml(safeJson(state.errors))}</pre>
+        `;
+        }
+
+        function renderInspector() {
+            const draft = selectedDraft();
+            if (!draft) {
+                els.inspectorPill.textContent = "None";
+                els.inspectorPill.className = "pill off";
+                els.inspectorSummary.textContent = "No record selected";
+                els.inspectorBody.innerHTML = `<div class="empty">Select an engagement to inspect its chain, content, metadata, diagnostics, and actions.</div>`;
+                return;
+            }
+            els.inspectorPill.textContent = statusLabel(draft.status);
+            els.inspectorPill.className = `pill ${statusClass(draft.status)}`;
+            els.inspectorSummary.textContent = `${shortId(draft.delivery_id, 12, 7)} · ${providerLabel(draft.provider)}`;
+            const chain = chainItemsForDraft(draft);
+            els.inspectorBody.innerHTML = `
+            <div class="timeline">${chain.map(item => `<div class="timeline-item"><span class="dot ${item.tone || ""}"></span><div><div class="record-title">${escapeHtml(item.title)}</div><div class="record-sub">${escapeHtml(item.detail)}</div></div></div>`).join("")}</div>
+            <div class="meta-grid">
+                <div class="meta-key">delivery_id</div><div class="meta-val">${escapeHtml(draft.delivery_id)}</div>
+                <div class="meta-key">message_id</div><div class="meta-val">${escapeHtml(draft.message_id)}</div>
+                <div class="meta-key">route_id</div><div class="meta-val">${escapeHtml(draft.route_id)}</div>
+                <div class="meta-key">queue_group</div><div class="meta-val">${escapeHtml(queueGroupName(draft.queue_group_id || "default"))} · ${escapeHtml(draft.queue_group_id || "default")}</div>
+                <div class="meta-key">source_session</div><div class="meta-val">${escapeHtml(sessionLabel(sessionKey(draft)))} · ${escapeHtml(sessionKey(draft))}</div>
+                <div class="meta-key">provider</div><div class="meta-val">${escapeHtml(providerLabel(draft.provider))} · ${escapeHtml(draft.provider)}</div>
+                <div class="meta-key">role</div><div class="meta-val">${escapeHtml(draft.role || "")}</div>
+                <div class="meta-key">body</div><div class="meta-val">${Number(draft.body_length || 0)} chars · ${escapeHtml(draft.body_hash || "")}</div>
+                <div class="meta-key">captured</div><div class="meta-val">${escapeHtml(fmtDate(draft.captured_at))}</div>
+                <div class="meta-key">queued</div><div class="meta-val">${escapeHtml(fmtDate(draft.queued_at))}</div>
+            </div>
+            <div class="split-actions">
+                <button class="button slim" data-action="copy-wrapped" data-delivery-id="${escapeHtml(draft.delivery_id)}">Copy routed text</button>
+                <button class="button slim" data-action="copy-source" data-delivery-id="${escapeHtml(draft.delivery_id)}">Copy source text</button>
+                <button class="button slim ok" data-action="dispatch" data-delivery-id="${escapeHtml(draft.delivery_id)}">Dispatch</button>
+                <button class="button slim" data-action="handled" data-delivery-id="${escapeHtml(draft.delivery_id)}">Mark handled</button>
+                <button class="button slim danger" data-action="cancel" data-delivery-id="${escapeHtml(draft.delivery_id)}">Cancel</button>
+            </div>
+            <h3>Routed body</h3><pre class="raw-box">${escapeHtml(primaryText(draft))}</pre>
+            <h3>Source body</h3><pre class="raw-box">${escapeHtml(sourceText(draft))}</pre>
+            <h3>Format diagnostics</h3><pre class="raw-box">${escapeHtml(safeJson(draft.format_diagnostics || {}))}</pre>
+            <h3>Metadata</h3><pre class="raw-box">${escapeHtml(safeJson(draft.metadata || {}))}</pre>
+        `;
+        }
+
+        function chainItemsForDraft(draft) {
+            const items = [
+                {
+                    title: "Source session",
+                    detail: `${sessionLabel(sessionKey(draft))} · ${shortId(sessionKey(draft), 14, 7)}`
+                },
+                {
+                    title: "Message captured",
+                    detail: `${draft.provider}/${draft.role} · ${fmtDate(draft.captured_at)} · ${shortId(draft.message_id, 13, 7)}`
+                },
+                {
+                    title: "Local draft delivery",
+                    detail: `${draft.route_id} · ${fmtDate(draft.queued_at)} · ${shortId(draft.delivery_id, 13, 7)}`
+                },
+            ];
+            if (draft.status === "dispatching" || draft.status === "dispatched") items.push({
+                title: "Provider dispatch",
+                detail: `${statusLabel(draft.status)} · ${providerLabel(draft.provider)}`,
+                tone: "warn"
+            });
+            if (draft.status === "response_received" || isProviderResponseDraft(draft)) items.push({
+                title: "Provider response lane",
+                detail: `${providerLabel(draft.provider)} response is available as local draft`,
+                tone: ""
+            });
+            if (draft.status === "draft_inserted") items.push({
+                title: "Inserted into browser composer",
+                detail: `${fmtDate(draft.acknowledged_at)} · manual send boundary preserved`
+            });
+            if (draft.status === "handled") items.push({
+                title: "Handled",
+                detail: `${fmtDate(draft.acknowledged_at)} · completed`,
+                tone: ""
+            });
+            if (draft.status === "cancelled") items.push({
+                title: "Cancelled",
+                detail: `${fmtDate(draft.cancelled_at)} · preserved for history`,
+                tone: "warn"
+            });
+            if (draft.status === "failed") items.push({
+                title: "Failed",
+                detail: draft.error || "failure recorded",
+                tone: "error"
+            });
+            return items;
+        }
+
+        async function copyText(text, label = "text") {
+            await navigator.clipboard.writeText(String(text || ""));
+            setStatus(`Copied ${label}.`);
+        }
+
+        function draftById(deliveryId) {
+            return state.drafts.find(d => d.delivery_id === deliveryId) || null;
+        }
+
+        async function cancelDraft(deliveryId) {
+            const draft = draftById(deliveryId);
+            if (!draft) return;
+            if (!confirm(`Cancel delivery ${shortId(deliveryId)}? Captured source history remains stored.`)) return;
+            await api(`/api/v1/drafts/${encodeURIComponent(deliveryId)}/cancel`, {
+                method: "POST",
+                body: JSON.stringify({reason: "cancelled from control center"})
+            });
+            await loadAll({silent: true});
+            setStatus(`Cancelled ${shortId(deliveryId)}.`);
+        }
+
+        async function markHandled(deliveryId) {
+            await api(`/api/v1/drafts/${encodeURIComponent(deliveryId)}/handled`, {method: "POST"});
+            await loadAll({silent: true});
+            setStatus(`Marked handled: ${shortId(deliveryId)}.`);
+        }
+
+        async function dispatchDraft(deliveryId) {
+            const draft = draftById(deliveryId);
+            const provider = selectedDispatchProvider();
+            if (!draft || !provider) {
+                setStatus("Select a delivery and dispatch-capable provider first.", "warn");
+                return;
+            }
+            if (!confirm(`Dispatch ${shortId(deliveryId)} to ${providerLabel(provider)}?`)) return;
+            const wrapper = selectedWrapper();
+            const response = await api(`/api/v1/providers/${encodeURIComponent(provider.provider_id)}/dispatch`, {
+                method: "POST",
+                body: JSON.stringify({
+                    delivery_id: deliveryId,
+                    queue_group_id: draft.queue_group_id || null,
+                    manual_confirmed: true,
+                    prompt_wrapper_id: wrapper?.wrapper_id || null,
+                    prompt_wrapper_label: wrapper?.label || null,
+                    options: {
+                        source: "draft_inbox_control_center",
+                        control_center: true,
+                        prompt_wrapper_id: wrapper?.wrapper_id || null,
+                        prompt_wrapper_label: wrapper?.label || null,
+                        operator_action_id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now())
+                    }
+                }),
+            });
+            await loadAll({silent: true});
+            const generated = (response.generated_delivery_ids || []).map(id => shortId(id)).join(", ") || "none";
+            setStatus(`Dispatch ${response.ok ? "completed" : "blocked"}: ${response.message || response.status}. Generated: ${generated}.`, response.ok ? "info" : "warn");
+        }
+
+        async function probeProvider(providerId) {
+            const response = await api(`/api/v1/providers/${encodeURIComponent(providerId)}/probe`, {method: "POST"});
+            await loadAll({silent: true});
+            setStatus(`Provider probe ${response.ok ? "ok" : "failed"}: ${providerId} · ${response.message}`, response.ok ? "info" : "warn");
+        }
+
+        async function runServiceAction(action, serviceId) {
+            const dangerous = action === "stop" || action === "restart";
+            if (dangerous && !confirm(`${action} ${serviceId}? Lifecycle authority is Supervisor/code-svc.`)) return;
+            const response = await api(`/api/v1/local-services/${encodeURIComponent(action)}`, {
+                method: "POST",
+                body: JSON.stringify({target: serviceId}),
+            });
+            state.services = response.services || state.services;
+            renderServices();
+            setStatus(`${action} ${serviceId}: ${response.message}`, response.ok ? "info" : "warn");
+        }
+
+        async function clearQueued({all = false, groupId = null} = {}) {
+            const effectiveGroup = all ? null : (groupId || (state.filters.queueGroup === "all" ? null : state.filters.queueGroup));
+            const provider = state.filters.provider === "all" ? null : state.filters.provider;
+            const label = all ? "all queued deliveries" : effectiveGroup ? `queued deliveries in ${queueGroupName(effectiveGroup)}` : "visible queued deliveries";
+            if (!confirm(`Clear ${label}? This cancels queued delivery records and preserves captured message history.`)) return;
+            const response = await api("/api/v1/drafts/clear-queued", {
+                method: "POST",
+                body: JSON.stringify({
+                    queue_group_id: effectiveGroup,
+                    provider,
+                    reason: all ? "cleared all queued deliveries from control center" : "cleared queued deliveries from control center",
+                }),
+            });
+            await loadAll({silent: true});
+            setStatus(`Cancelled ${response.cancelled_count || 0} queued delivery record(s).`);
+        }
+
+        async function createGroup() {
+            const name = els.newGroupName.value.trim();
+            if (!name) return setStatus("Enter a queue group name first.", "warn");
+            const response = await api("/api/v1/queue-groups", {method: "POST", body: JSON.stringify({name})});
+            els.newGroupName.value = "";
+            if (response.queue_group_id) state.filters.queueGroup = response.queue_group_id;
+            saveFilters();
+            await loadAll({silent: true});
+            setStatus(`Created queue group: ${response.queue_group?.name || name}`);
+        }
+
+        async function renameSelectedGroup() {
+            const groupId = state.filters.queueGroup;
+            const name = els.renameGroupName.value.trim();
+            if (!groupId || groupId === "all") return setStatus("Select a specific queue group before renaming.", "warn");
+            if (groupId === "default") return setStatus("Default queue cannot be renamed.", "warn");
+            if (!name) return setStatus("Enter a new group name first.", "warn");
+            const response = await api(`/api/v1/queue-groups/${encodeURIComponent(groupId)}/rename`, {
+                method: "POST",
+                body: JSON.stringify({name})
+            });
+            els.renameGroupName.value = "";
+            await loadAll({silent: true});
+            setStatus(response.ok ? `Renamed group: ${response.queue_group?.name || name}` : `Rename failed: ${response.error}`, response.ok ? "info" : "warn");
+        }
+
+        async function deleteSelectedGroup() {
+            const groupId = state.filters.queueGroup;
+            if (!groupId || groupId === "all") return setStatus("Select a specific queue group before deleting.", "warn");
+            if (groupId === "default") return setStatus("Default queue cannot be deleted.", "warn");
+            if (!confirm(`Delete queue group ${queueGroupName(groupId)}? Queued items in the group will be cancelled.`)) return;
+            const response = await api(`/api/v1/queue-groups/${encodeURIComponent(groupId)}/delete`, {
+                method: "POST",
+                body: JSON.stringify({cancel_queued: true, reason: "deleted from control center"})
+            });
+            state.filters.queueGroup = "all";
+            saveFilters();
+            await loadAll({silent: true});
+            setStatus(response.ok ? `Deleted group. Cancelled: ${response.cancelled_count || 0}.` : `Delete failed: ${response.error}`, response.ok ? "info" : "warn");
+        }
+
+        async function saveSession(sessionId, provider) {
+            const labelInput = document.querySelector(`[data-session-label-input="${CSS.escape(sessionId)}"]`);
+            const groupSelect = document.querySelector(`[data-session-group-select="${CSS.escape(sessionId)}"]`);
+            const label = labelInput?.value?.trim() || sessionLabel(sessionId);
+            const groupId = groupSelect?.value || "default";
+            if (label) {
+                await api("/api/v1/sessions/label", {
+                    method: "POST",
+                    body: JSON.stringify({source_session_id: sessionId, provider, label, label_source: "user_saved"})
+                });
+            }
+            await api("/api/v1/sessions/queue-group", {
+                method: "POST",
+                body: JSON.stringify({source_session_id: sessionId, provider, label, queue_group_id: groupId})
+            });
+            await loadAll({silent: true});
+            setStatus(`Saved session ${shortId(sessionId)} · ${label} · ${queueGroupName(groupId)}.`);
+        }
+
+        async function previewWrapper() {
+            const draft = selectedDraft();
+            const wrapper = selectedWrapper();
+            const target = byId("wrapperPreview");
+            if (!draft || !wrapper || !target) return;
+            const response = await api("/api/v1/prompt-wrappers/apply", {
+                method: "POST",
+                body: JSON.stringify({wrapper_id: wrapper.wrapper_id, text: primaryText(draft)})
+            });
+            target.innerHTML = `<h3>Wrapper preview</h3><pre class="raw-box">${escapeHtml(response.text || "")}</pre>`;
+            setStatus(`Previewed wrapper ${wrapper.label || wrapper.wrapper_id}.`);
+        }
+
+        async function runDiscovery() {
+            if (!confirm("Run provider discovery now? Active config is not overwritten by discovery.")) return;
+            const response = await api("/api/v1/provider-discovery/run", {
+                method: "POST",
+                body: JSON.stringify({probe: true, include_offline_candidates: true, persist_report: true})
+            });
+            state.discovery = response;
+            await loadAll({silent: true});
+            setStatus(`Provider discovery completed: ${(response.candidates || []).length} candidate(s), ${(response.applied_provider_ids || []).length} applied.`);
+        }
+
+        function connectEvents() {
+            if (state.eventSource) return;
+            const source = new EventSource("/api/v1/events");
+            state.eventSource = source;
+            const handler = event => {
+                let payload = {event_type: event.type, received_at: new Date().toISOString(), data: event.data};
+                try {
+                    payload = {
+                        ...JSON.parse(event.data || "{}"),
+                        event_type: event.type,
+                        received_at: new Date().toISOString()
+                    };
+                } catch (_) {
+                }
+                state.liveEvents.unshift(payload);
+                state.liveEvents = state.liveEvents.slice(0, 80);
+                renderEvents();
             };
+            for (const type of EVENT_TYPES) source.addEventListener(type, handler);
+            source.onerror = () => {
+                state.liveEvents.unshift({
+                    event_type: "event_stream.error",
+                    received_at: new Date().toISOString(),
+                    message: "Event stream disconnected or unavailable."
+                });
+                state.liveEvents = state.liveEvents.slice(0, 80);
+                renderEvents();
+            };
+            renderEvents();
+            setStatus("Connected live event stream.");
         }
-    }
 
-    function showError(err) {
-        console.error(err);
-        els.drafts.innerHTML = "";
-        const box = document.createElement("div");
-        box.className = "empty";
-        box.innerHTML = `<strong>Error loading drafts.</strong><div class="small">${escapeHtml(err.message || String(err))}</div>`;
-        els.drafts.appendChild(box);
-        setStatus("Error.");
-    }
-
-    bindEvents();
-
-    if (!["queued", "draft_inserted", "handled", "cancelled", "failed", "all"].includes(state.statusFilter)) {
-        state.statusFilter = "queued";
-    }
-
-    loadAll().catch(showError);
-
-    setInterval(() => {
-        loadAll().catch(() => {
-        });
-    }, 2500);
-
-    window.addEventListener("focus", () => {
-        loadAll().catch(() => {});
-    });
-
-    document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) {
-            loadAll().catch(() => {});
+        function disconnectEvents() {
+            if (state.eventSource) state.eventSource.close();
+            state.eventSource = null;
+            renderEvents();
+            setStatus("Disconnected live event stream.");
         }
-    });
+
+        function bindEvents() {
+            document.addEventListener("click", event => {
+                const toggle = event.target.closest("[data-toggle-section]");
+                if (toggle) {
+                    const name = toggle.dataset.toggleSection;
+                    state.sections[name] = !state.sections[name];
+                    saveSections();
+                    applySectionState();
+                    return;
+                }
+                const actionEl = event.target.closest("[data-action]");
+                if (!actionEl) return;
+                const action = actionEl.dataset.action;
+                const deliveryId = actionEl.dataset.deliveryId;
+                const draft = deliveryId ? draftById(deliveryId) : null;
+                Promise.resolve().then(async () => {
+                    if (action === "select") selectDelivery(deliveryId);
+                    else if (action === "select-scroll") scrollToDelivery(deliveryId);
+                    else if (action === "copy-wrapped" && draft) await copyText(primaryText(draft), "routed text");
+                    else if (action === "copy-source" && draft) await copyText(sourceText(draft), "source text");
+                    else if (action === "copy-selected-json" && selectedDraft()) await copyText(safeJson(selectedDraft()), "selected JSON");
+                    else if (action === "copy-all-json") await copyText(safeJson({
+                        statusDetail: state.statusDetail,
+                        adminSummary: state.adminSummary,
+                        providers: state.providers,
+                        queueGroups: state.queueGroups,
+                        providerSessions: state.providerSessions,
+                        services: state.services,
+                        drafts: state.drafts
+                    }), "loaded state JSON");
+                    else if (action === "copy-status-json") await copyText(safeJson(state.statusDetail || {}), "status JSON");
+                    else if (action === "copy-provider-json") await copyText(safeJson(state.providers.find(p => p.provider_id === actionEl.dataset.providerId) || {}), "provider JSON");
+                    else if (action === "copy-discovery-json") await copyText(safeJson(state.discovery || {}), "discovery JSON");
+                    else if (action === "copy-wrapper-json") await copyText(safeJson(state.promptWrappers), "prompt wrapper JSON");
+                    else if (action === "cancel") await cancelDraft(deliveryId);
+                    else if (action === "handled") await markHandled(deliveryId);
+                    else if (action === "dispatch") await dispatchDraft(deliveryId);
+                    else if (action === "probe-provider") await probeProvider(actionEl.dataset.providerId);
+                    else if (action === "select-provider") selectProvider(actionEl.dataset.providerId);
+                    else if (action === "metric-filter") applyMetricFilter(actionEl.dataset.filter);
+                    else if (action === "filter-session") setFilter("session", actionEl.dataset.sessionId);
+                    else if (action === "filter-group") setFilter("queueGroup", actionEl.dataset.groupId);
+                    else if (action === "clear-group-queued") await clearQueued({groupId: actionEl.dataset.groupId});
+                    else if (action === "save-session") await saveSession(actionEl.dataset.sessionId, actionEl.dataset.provider || "chatgpt");
+                    else if (action === "open-url") window.open(actionEl.dataset.url, "_blank", "noopener,noreferrer");
+                    else if (action === "service-status") await runServiceAction("status", actionEl.dataset.serviceId);
+                    else if (action === "service-start") await runServiceAction("start", actionEl.dataset.serviceId);
+                    else if (action === "service-restart") await runServiceAction("restart", actionEl.dataset.serviceId);
+                    else if (action === "service-stop") await runServiceAction("stop", actionEl.dataset.serviceId);
+                    else if (action === "select-wrapper") selectWrapper(actionEl.dataset.wrapperId);
+                    else if (action === "preview-wrapper") await previewWrapper();
+                    else if (action === "run-discovery") await runDiscovery();
+                    else if (action === "connect-events") connectEvents();
+                    else if (action === "disconnect-events") disconnectEvents();
+                    else if (action === "clear-events") {
+                        state.liveEvents = [];
+                        renderEvents();
+                    } else if (action === "refresh-services") await refreshServicesOnly();
+                }).catch(showError);
+            });
+
+            els.refreshAll.onclick = () => loadAll().catch(showError);
+            els.expandAll.onclick = () => {
+                for (const key of Object.keys(state.sections)) state.sections[key] = true;
+                saveSections();
+                applySectionState();
+            };
+            els.collapseAll.onclick = () => {
+                for (const key of Object.keys(state.sections)) state.sections[key] = false;
+                saveSections();
+                applySectionState();
+            };
+            els.openApiHealth.onclick = () => window.open("/health", "_blank", "noopener,noreferrer");
+            els.clearFilters.onclick = () => {
+                state.filters = {...defaultFilters};
+                saveFilters();
+                renderAll();
+                setStatus("Filters cleared.");
+            };
+            els.clearVisibleQueued.onclick = () => clearQueued({all: false}).catch(showError);
+            els.clearAllQueued.onclick = () => clearQueued({all: true}).catch(showError);
+            els.createGroup.onclick = () => createGroup().catch(showError);
+            els.renameGroup.onclick = () => renameSelectedGroup().catch(showError);
+            els.deleteGroup.onclick = () => deleteSelectedGroup().catch(showError);
+
+            const filterBindings = [
+                [els.searchBox, "search", "input"],
+                [els.statusFilter, "status", "change"],
+                [els.sourceModeFilter, "sourceMode", "change"],
+                [els.queueGroupFilter, "queueGroup", "change"],
+                [els.providerFilter, "provider", "change"],
+                [els.sessionFilter, "session", "change"],
+                [els.sortMode, "sort", "change"],
+                [els.displayMode, "display", "change"],
+            ];
+            for (const [el, key, eventName] of filterBindings) {
+                el.addEventListener(eventName, () => {
+                    state.filters[key] = el.value;
+                    saveFilters();
+                    renderAll();
+                });
+            }
+
+            document.addEventListener("keydown", event => {
+                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r") {
+                    event.preventDefault();
+                    loadAll().catch(showError);
+                }
+            });
+        }
+
+        function selectDelivery(deliveryId) {
+            state.selectedDeliveryId = deliveryId || "";
+            localStorage.setItem(STORAGE_KEYS.selectedDeliveryId, state.selectedDeliveryId);
+            renderSelectedTools();
+            renderEngagements();
+            renderInspector();
+            setStatus(`Selected delivery ${shortId(deliveryId)}.`);
+        }
+
+        function scrollToDelivery(deliveryId) {
+            state.sections.engagements = true;
+            saveSections();
+            renderEngagements();
+            renderInspector();
+            applySectionState();
+            requestAnimationFrame(() => document.getElementById(`delivery-${deliveryId}`)?.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            }));
+        }
+
+        function selectProvider(providerId) {
+            state.dispatchProviderId = providerId || "";
+            if (providerId) localStorage.setItem(STORAGE_KEYS.providerId, providerId);
+            renderProviders();
+            renderSelectedTools();
+            setStatus(`Selected dispatch provider: ${providerLabel(providerId)}.`);
+        }
+
+        function selectWrapper(wrapperId) {
+            state.selectedWrapperId = wrapperId || "";
+            if (wrapperId) localStorage.setItem(STORAGE_KEYS.wrapperId, wrapperId);
+            else localStorage.removeItem(STORAGE_KEYS.wrapperId);
+            renderWrappers();
+            renderSelectedTools();
+            setStatus(wrapperId ? `Selected wrapper: ${wrapperById(wrapperId)?.label || wrapperId}.` : "Prompt wrapper disabled.");
+        }
+
+        function setFilter(key, value) {
+            state.filters[key] = value;
+            saveFilters();
+            renderAll();
+            setStatus(`Filter updated: ${key}.`);
+        }
+
+        function applyMetricFilter(filter) {
+            if (["queued", "response_received", "handled", "failed"].includes(filter)) state.filters.status = filter;
+            if (filter === "session") state.sections.sessions = true;
+            if (filter === "group") state.sections.groups = true;
+            saveFilters();
+            saveSections();
+            renderAll();
+        }
+
+        async function refreshServicesOnly() {
+            const response = await api("/api/v1/local-services/status");
+            state.services = response.services || [];
+            renderServices();
+            renderOverview();
+            setStatus("Service status refreshed.");
+        }
+
+        function showError(error) {
+            console.error(error);
+            state.errors.unshift({error: String(error), at: new Date().toISOString()});
+            state.errors = state.errors.slice(0, 20);
+            setStatus(`Error: ${error}`, "error");
+            renderDiagnostics();
+        }
+
+        function init() {
+            bindEvents();
+            applySectionState();
+            loadAll().catch(showError);
+        }
+
+        init();
+    })();
 </script>
 </body>
 </html>

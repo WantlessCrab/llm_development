@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "05_rsync.schema.json",
+  "title": "Recovery rsync transport report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.rsync.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "rsync"
+        },
+        "script": {
+          "type": "string"
+        },
+        "rsync_path": {
+          "type": "string"
+        },
+        "virsh_path": {
+          "type": "string"
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "dry-run",
+        "stage-directory",
+        "stage-rescuezilla-image",
+        "stage-manifest-tree",
+        "stage-large-artifact",
+        "cold-copy-vm-disk",
+        "assert-no-live-vm-disk",
+        "restore-preview",
+        "restore-guarded",
+        "log-itemized"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "dry-run",
+        "execute",
+        "assert",
+        "summary"
+      ]
+    },
+    "source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "destination": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rsync": {
+      "$ref": "#/$defs/rsync_report"
+    },
+    "vm_guard": {
+      "$ref": "#/$defs/vm_guard"
+    },
+    "itemized_summary": {
+      "$ref": "#/$defs/itemized_summary"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_result"
+      }
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    },
+    "rsync_report": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode",
+        "dry_run",
+        "delete_enabled"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "delete_enabled": {
+          "type": "boolean"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "itemized_path": {
+          "type": "string"
+        }
+      }
+    },
+    "vm_guard": {
+      "type": "object",
+      "required": [
+        "ok",
+        "source",
+        "failures",
+        "warnings"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "domain": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "itemized_summary": {
+      "type": "object",
+      "required": [
+        "path",
+        "line_count",
+        "changed_count",
+        "deleted_count"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "line_count": {
+          "type": "integer"
+        },
+        "changed_count": {
+          "type": "integer"
+        },
+        "deleted_count": {
+          "type": "integer"
+        },
+        "created_count": {
+          "type": "integer"
+        },
+        "updated_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

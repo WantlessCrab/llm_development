@@ -1,0 +1,29 @@
+[Unit]
+Description=Wantless Recovery scheduled backup activation
+Documentation=file:/home/wantless/PycharmProjects/automation/recovery/configs/08_systemd.yaml
+ConditionPathExists=/home/wantless/PycharmProjects/automation/recovery/scripts/08_systemd.sh
+ConditionPathIsMountPoint=/mnt/wantless_recovery
+RequiresMountsFor=/mnt/wantless_recovery
+After=local-fs.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=wantless
+UMask=0002
+WorkingDirectory=/home/wantless/PycharmProjects/automation/recovery
+Environment=RECOVERY_SYSTEMD_CONTEXT=system
+EnvironmentFile=-/etc/wantless-recovery/recovery.env
+ExecStart=/home/wantless/PycharmProjects/automation/recovery/scripts/08_systemd.sh manual-backup --unit-context system --execute
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/home/wantless/PycharmProjects/automation/recovery/state /mnt/wantless_recovery
+TimeoutStartSec=12h
+
+[Install]
+WantedBy=multi-user.target

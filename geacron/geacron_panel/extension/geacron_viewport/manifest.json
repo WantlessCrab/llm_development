@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjZP41it6TipX7kYLfo+XCsHK5HRycQLRltPmQgbIj5jAXZUjlhr/uOWnmuHdlIqRWDWfFh8EkgSvk3fvt72MF8Q+N/4cL5OkdLB02GG2f+RqQTfi+0IeOC5ikFbBjmN/QHf2J2ok4LbKJWqXokdaSFDr4Bn/qm4FwtBAI2i9wOpKFnyaCBncsFSpoOXzNLfabE/hid9Fh3tPA6rIuRJ2AmV1o3KOjXsyiARnKeOcC9jFGTr+/kLdNqPoE1Utfs1Zo3Gj+Et60Ee3HD9eHdhhULoT1Xx1AgxakMkd55net9LnJA48fu0hhAMrwtBPR5FJP5VBnRf3T14s0hgUkQbYZQIDAQAB",
+  "name": "GeaCron Panel Viewport Adapter",
+  "version": "1.2.0",
+  "description": "Frames the native GeaCron map and provides panel controls for the dedicated GeaCron window.",
+  "permissions": [
+    "nativeMessaging",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "service_worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://geacron.com/*",
+        "https://*.geacron.com/*",
+        "http://geacron.com/*",
+        "http://*.geacron.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": false
+    }
+  ]
+}

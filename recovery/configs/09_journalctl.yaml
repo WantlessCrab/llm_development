@@ -1,0 +1,61 @@
+version: 1
+
+tool:
+  name: journalctl
+  verified_systemd_version: "255.4-1ubuntu8.15"
+  layer: "09_execution_evidence_failure_diagnostics"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/09_journalctl"
+  local_test_root: "state/local_test/09_journalctl"
+
+commands:
+  journalctl: "/usr/bin/journalctl"
+  systemctl: "/usr/bin/systemctl"
+
+policy:
+  default_since: "24 hours ago"
+  default_lines: 800
+  failure_context_since: "72 hours ago"
+  previous_boot_lines: 1200
+  export_json_lines: 1000
+  export_native_lines: 1000
+  priority_warning: "warning..alert"
+  priority_error: "err..alert"
+  copy_config_snapshot_into_run: true
+  report_name: "journalctl_report.json"
+  text_suffix: ".txt"
+  json_suffix: ".jsonl"
+  export_suffix: ".journal-export"
+  use_sudo_for_system_journal: false
+  capture_previous_boot_if_available: true
+  fail_if_journalctl_missing: true
+
+recovery_units:
+  system: "wantless-recovery-preflight.service;wantless-recovery-backup.service;wantless-recovery-backup.timer;wantless-recovery-verify.service"
+  user: "wantless-desktop-capture.service"
+  timer: "wantless-recovery-backup.timer"
+  backup_service: "wantless-recovery-backup.service"
+  verify_service: "wantless-recovery-verify.service"
+  preflight_service: "wantless-recovery-preflight.service"
+
+related_units:
+  docker: "docker.service;containerd.service;portainer.service"
+  libvirt: "libvirtd.service;virtqemud.service;virtlogd.service;virtlockd.service;qemu-kvm.service;libvirt-guests.service;run-qemu.mount"
+  postgres: "postgresql.service;llm-postgres.service"
+
+patterns:
+  storage_kernel_regex: "(?i)(nvme|ata[0-9]|ahci|sd[a-z]|scsi|usb|uas|blk_update_request|i/o error|buffer i/o|ext4-fs error|ext4-fs warning|btrfs|xfs|dm-|device-mapper|crypt|luks|filesystem|read-only file system|reset high-speed usb|failed command|medium error|uncorrectable|timeout|link is slow|read error|write error|smart|temperature)"
+  docker_libvirt_regex: "(?i)(docker|containerd|portainer|libvirt|libvirtd|virtqemud|virtlogd|virtlockd|qemu|kvm|swtpm|dnsmasq|virbr0|tap|vnet)"
+  postgres_dump_regex: "(?i)(postgres|postgresql|pg_dump|pg_restore|pg_dumpall|llm-postgres|pgvector|database system|checkpoint|schema|relation|role|permission denied|connection refused|fatal|panic|error)"
+  recovery_failure_regex: "(?i)(wantless-recovery|borg|borgmatic|cryptsetup|luks|rescuezilla|rsync|sha256sum|b3sum|smartctl|journalctl|failed|failure|error|timeout|permission denied|no such file|not mounted|mountpoint)"
+
+exports:
+  default_output_mode: "short-iso"
+  json_mode: "json"
+  native_mode: "export"
+  include_boots_in_failure_context: "0;-1"
+
+kernel_storage:
+  include_full_kernel_pattern_scan: true

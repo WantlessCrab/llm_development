@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "12_pipx.schema.json",
+  "title": "Recovery pipx CLI state report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.pipx.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script",
+        "pipx_path"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "pipx"
+        },
+        "script": {
+          "type": "string"
+        },
+        "pipx_path": {
+          "type": "string"
+        },
+        "python3_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pip_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pipx_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "python3_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "python_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "capture-environment",
+        "capture-list-json",
+        "capture-injected",
+        "capture-entrypoints",
+        "capture-interpreter",
+        "build-critical-wheelhouse",
+        "verify-wheelhouse",
+        "restore-plan",
+        "generate-reinstall-input",
+        "generate-reinstall-script"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "capture",
+        "plan",
+        "verify",
+        "guarded-build",
+        "summary",
+        null
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_result"
+      }
+    },
+    "pipx": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "interpreter": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "venvs": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "injected": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "restore_plan": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "reinstall_input": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "wheelhouse": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

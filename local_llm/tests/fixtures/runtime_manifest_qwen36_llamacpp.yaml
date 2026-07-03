@@ -1,0 +1,13 @@
+runtime:
+  runtime_id: qwen36_35b_q4_llamacpp
+  engine: llama.cpp
+  engine_family: llamacpp_rocm
+  compute_backend: ROCm/HIP
+  service_name: llamacpp-rocm-qwen36-35b-q4
+  container_name: llamacpp-rocm-qwen36-35b-q4
+  image_name: localproject/llamacpp-rocm-qwen36-35b-q4:latest
+network:
+  api_base_url: http://127.0.0.1:8023/v1
+  health_url: http://127.0.0.1:8023/health
+served_model:
+  served_model_name: local-qwen36-35b-q4-llamacpp

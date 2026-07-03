@@ -1,0 +1,105 @@
+version: 1
+
+tool:
+  name: postgresql
+  verified_active_server: "18.4"
+  verified_dump_tooling: "18.4"
+  verified_pgvector_image: "pgvector/pgvector:0.8.2-pg18-trixie"
+  verified_postgres_client_image: "postgres:18.4-trixie"
+  layer: "16_logical_database_recovery"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/16_postgresql"
+  generated_root: "state/generated/16_postgresql"
+  dump_root: "state/exports/16_postgresql/dumps"
+  restore_test_root: "state/disposable_restore/16_postgresql"
+
+commands:
+  docker: "/usr/bin/docker"
+  python: "/usr/bin/python3"
+  sha256sum: "/usr/bin/sha256sum"
+
+postgresql:
+  active_container_name: "llm-postgres"
+  active_service_name: "llm-postgres"
+  active_runtime_image: "localproject/llm-postgres:pg18-pgvector082"
+  active_upstream_image: "pgvector/pgvector:0.8.2-pg18-trixie"
+  active_volume_name: "llm_database_pgdata"
+  active_host_port: "8032"
+  container_port: "5432"
+  server_user: "llm_database"
+  required_database: "llm_database"
+  maintenance_database: "postgres"
+  required_databases: "llm_database;postgres"
+  expected_server_major: 18
+  expected_server_version_prefix: "18."
+  required_client_major: 18
+  fallback_client_image: "postgres:18.4-trixie"
+  disposable_restore_image: "pgvector/pgvector:0.8.2-pg18-trixie"
+  disposable_host_auth_method: "trust"
+  data_stack_root: "/home/wantless/PycharmProjects/automation/data_stack"
+  data_stack_compose: "/home/wantless/PycharmProjects/automation/data_stack/docker-compose.postgres.yml"
+  data_stack_dockerfile: "/home/wantless/PycharmProjects/automation/data_stack/dockerfile.postgres"
+  data_stack_env_path: "/home/wantless/PycharmProjects/automation/data_stack/.env"
+  data_stack_env_example_path: "/home/wantless/PycharmProjects/automation/data_stack/.env.example"
+  schema_authority_migration: "/home/wantless/PycharmProjects/automation/data_stack/db/migrations/010_final_phase_1_5_schema.sql"
+  init_sql_paths: "/home/wantless/PycharmProjects/automation/data_stack/db/init/001_extensions.sql;/home/wantless/PycharmProjects/automation/data_stack/db/init/002_bootstrap.sql"
+  local_llm_config_path: "/home/wantless/.config/local-llm/config.yaml"
+  local_llm_runtime_env_path: "/home/wantless/.config/local-llm/local-llm.env"
+
+schema_authority:
+  required_schemas: "core;local_llm;eval"
+  required_core_tables: "schema_version;applied_migrations;boot_checks"
+  required_local_llm_tables: "corpora;sources;documents;chunks;sessions"
+  required_eval_tables: "turn_packets;turn_attempts;turn_events;turn_content_refs;turn_artifacts;metric_registry;turn_metric_facts;packet_groups;packet_group_members"
+  required_extensions: "pgcrypto;vector"
+  forbidden_schemas: "model_runtime"
+  forbidden_local_llm_tables: "runs;run_retrievals;run_artifacts;turns"
+  forbidden_eval_tables: "evidence_batches;comparison_groups;eval_reports;eval_metrics;eval_artifacts"
+  forbidden_model_runtime_tables: "model_files;runtime_artifacts;runtime_snapshots"
+  forbidden_eval_views: "model_runtime_summary_v;privacy_capture_summary_v;report_summary_v;run_capture_summary_v;tuning_comparison_v"
+  expected_retrieval_method: "postgres_fts"
+  expected_fts_config: "simple"
+
+dump_policy:
+  dump_format: "custom"
+  dump_extension: ".dump"
+  globals_extension: ".globals.sql"
+  dump_jobs: 1
+  dump_compress: 6
+  include_blobs: true
+  no_role_passwords_for_globals: true
+  include_clean_restore_list: true
+  verify_restore_list_after_dump: true
+  dump_required_databases: "llm_database"
+  allow_dump_postgres_maintenance_db: false
+  generated_restore_plan_name: "postgresql_restore_plan.md"
+  generated_script_mode: "0600"
+
+restore_test_policy:
+  restore_disposable_requires_execute: true
+  restore_guard_prefix: "POSTGRES_DISPOSABLE_RESTORE"
+  restore_guard_env: "CONFIRM_POSTGRES_DISPOSABLE_RESTORE"
+  restore_guard_value: "I_UNDERSTAND_THIS_CREATES_A_DISPOSABLE_POSTGRES_RESTORE"
+  disposable_container_prefix: "recovery-postgres-restore"
+  disposable_volume_prefix: "recovery-postgres-restore-pgdata"
+  disposable_database_name: "llm_database_restore"
+  helper_image_must_exist_locally: true
+  no_auto_pull: true
+  cleanup_disposable_container: true
+  keep_disposable_container: false
+  restore_with_no_owner: true
+  restore_with_no_privileges: true
+  restore_with_exit_on_error: true
+  restore_timeout_seconds: 120
+  smoke_required_schemas: "core;local_llm;eval"
+  smoke_required_extensions: "pgcrypto;vector"
+
+security:
+  copy_env_files: false
+  hash_env_files_only: true
+  redact_password_like_values: true
+  record_secret_paths_only: true
+  globals_dump_no_role_passwords_required: true
+  never_copy_raw_docker_volume_as_primary: true

@@ -1,0 +1,58 @@
+version: 1
+
+tool:
+  name: restore_runbooks
+  layer: "18_human_recovery_execution_validation_stop_condition"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/18_runbooks"
+  generated_root: "state/generated/18_runbooks"
+  proof_bundle_root: "state/proof_bundles"
+
+runbooks:
+  canonical_restore_first: "runbooks/RESTORE_FIRST.md"
+  canonical_known_host_warnings: "runbooks/KNOWN_HOST_WARNINGS.md"
+  generated_index: "runbooks/INDEX.md"
+  retired_placeholder_root: "runbooks/_retired_placeholders"
+  old_placeholder_globs: "runbooks/[0-9][0-9]*.md;runbooks/[0-9][0-9]_*.md;runbooks/[0-9][0-9]-*.md"
+  placeholder_signal_words: "placeholder;stub;todo;tbd;empty;draft only;not implemented"
+  fail_on_active_placeholder_authority: true
+
+proof:
+  proof_bundle_index_json: "state/generated/18_runbooks/proof_bundle_index.json"
+  proof_bundle_index_md: "state/generated/18_runbooks/proof_bundle_index.md"
+  proof_roots: "state/dry_runs;state/generated;state/exports;state/proof_bundles;runbooks"
+  row_dry_run_dirs: "state/dry_runs/01_smartmontools;state/dry_runs/02_rescuezilla;state/dry_runs/03_cryptsetup;state/dry_runs/04_integrity;state/dry_runs/05_rsync;state/dry_runs/06_borg;state/dry_runs/07_borgmatic;state/dry_runs/08_systemd;state/dry_runs/09_journalctl;state/dry_runs/10_packages;state/dry_runs/11_flatpak;state/dry_runs/12_pipx;state/dry_runs/13_desktop;state/dry_runs/14_docker;state/dry_runs/15_portainer;state/dry_runs/16_postgresql;state/dry_runs/17_libvirt"
+  row_generated_dirs: "state/generated/07_borgmatic;state/generated/08_systemd;state/generated/13_desktop;state/generated/14_docker;state/generated/15_portainer;state/generated/16_postgresql;state/generated/17_libvirt;state/generated/18_runbooks"
+  max_index_entries_per_row: 200
+
+validation:
+  required_runbook_sections: "Emergency rule;Authority map;Source repo versus vault separation;Baseline image versus Borg delta workflow;Logical database authority;Docker and Portainer boundary;VM cold-copy authority;Integrity gates;Smoke tests;Layer order;First-build procedure;Normal backup procedure;SSD-corruption decision tree;Bare-metal restore;Post-image delta restore;Package and app restore;Desktop restore;Docker PostgreSQL and Portainer restore;Future Windows VM restore;Validation checklist;Known-host warnings;Stop conditions;Proof bundle;Post-recovery backup requirement"
+  required_warning_sections: "Known host identity;Destructive operation warnings;Storage and disk warnings;Desktop session warnings;Docker and PostgreSQL warnings;Portainer warning;Future VM and BitLocker warning;Audio input display warning;Old runbook authority warning"
+  required_stop_conditions: "STOP-WRONG-DISK;STOP-ROOT-DISK;STOP-UNKNOWN-VAULT;STOP-FAILED-SMART;STOP-MISSING-DUMP;STOP-UNVERIFIED-DUMP;STOP-LIVE-VM-DISK;STOP-PORTAINER-LATEST;STOP-SECRET-EXPOSURE;STOP-UNMOUNTED-VAULT;STOP-UNCLEAR-AUTHORITY;STOP-BITLOCKER-UNKNOWN;STOP-PLACEHOLDER-RUNBOOK"
+  required_checklist_sections: "Pre-restore authority checks;Media and vault checks;Bare-metal image checks;Filesystem delta checks;Database checks;Docker and Portainer checks;Desktop checks;VM checks;Final validation checks"
+  checklist_token_pattern: \[CHK-[A-Z0-9-]+\]
+
+required_files:
+  runtime_files: "configs/01_smartmontools.yaml;scripts/01_smartmontools.sh;manifests/schema/01_smartmontools.schema.json;configs/02_rescuezilla.yaml;scripts/02_rescuezilla.sh;manifests/schema/02_rescuezilla.schema.json;configs/03_cryptsetup.yaml;scripts/03_cryptsetup.sh;manifests/schema/03_cryptsetup.schema.json;configs/04_integrity.yaml;scripts/04_integrity.sh;manifests/schema/04_integrity.schema.json;configs/05_rsync.yaml;scripts/05_rsync.sh;manifests/schema/05_rsync.schema.json;configs/06_borg.yaml;scripts/06_borg.sh;manifests/schema/06_borg.schema.json;configs/07_borgmatic.yaml;scripts/07_borgmatic.sh;manifests/schema/07_borgmatic.schema.json;configs/08_systemd.yaml;scripts/08_systemd.sh;systemd/system/wantless-recovery-preflight.service;systemd/system/wantless-recovery-backup.service;systemd/system/wantless-recovery-backup.timer;systemd/system/wantless-recovery-verify.service;systemd/user/wantless-desktop-capture.service;configs/09_journalctl.yaml;scripts/09_journalctl.sh;manifests/schema/09_journalctl.schema.json;configs/10_packages.yaml;scripts/10_packages.sh;manifests/schema/10_packages.schema.json;configs/11_flatpak.yaml;scripts/11_flatpak.sh;manifests/schema/11_flatpak.schema.json;configs/12_pipx.yaml;scripts/12_pipx.sh;manifests/schema/12_pipx.schema.json;configs/13_desktop.yaml;scripts/13_desktop.sh;manifests/schema/13_desktop.schema.json;configs/14_docker.yaml;scripts/14_docker.sh;manifests/schema/14_docker.schema.json;configs/15_portainer.yaml;scripts/15_portainer.sh;manifests/schema/15_portainer.schema.json;configs/16_postgresql.yaml;scripts/16_postgresql.sh;manifests/schema/16_postgresql.schema.json;configs/17_libvirt.yaml;scripts/17_libvirt.sh;manifests/schema/17_libvirt.schema.json;runbooks/RESTORE_FIRST.md;runbooks/KNOWN_HOST_WARNINGS.md;configs/18_runbooks.yaml;scripts/18_runbooks.sh;manifests/schema/18_runbooks.schema.json"
+  executable_scripts: "scripts/01_smartmontools.sh;scripts/02_rescuezilla.sh;scripts/03_cryptsetup.sh;scripts/04_integrity.sh;scripts/05_rsync.sh;scripts/06_borg.sh;scripts/07_borgmatic.sh;scripts/08_systemd.sh;scripts/09_journalctl.sh;scripts/10_packages.sh;scripts/11_flatpak.sh;scripts/12_pipx.sh;scripts/13_desktop.sh;scripts/14_docker.sh;scripts/15_portainer.sh;scripts/16_postgresql.sh;scripts/17_libvirt.sh;scripts/18_runbooks.sh"
+
+source_gate:
+  fail_on_empty_required_files: true
+  fail_on_invalid_json_schemas: true
+  fail_on_invalid_recovery_yaml_configs: true
+  fail_on_empty_unit_files: true
+  forbidden_files: "systemd/system/wantless-desktop-capture.service"
+
+policy:
+  copy_config_snapshot_into_run: true
+  report_name: "runbooks_report.json"
+  generated_script_mode: "0600"
+  retire_requires_execute: true
+  retire_guard_env: "CONFIRM_RUNBOOK_PLACEHOLDER_RETIRE"
+  retire_guard_value: "I_UNDERSTAND_THIS_MOVES_OLD_RUNBOOK_AUTHORITIES"
+  retire_confirm_token: "RETIRE_OLD_PLACEHOLDER_RUNBOOKS"
+  no_lower_tool_execution: true
+  no_backup_media_mutation: true
+  no_destructive_delete: true

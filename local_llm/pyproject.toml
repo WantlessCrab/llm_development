@@ -1,7 +1,7 @@
 [project]
 name = "local-llm"
 version = "0.2.0"
-description = "Standalone local LLM backend with SQLite FTS RAG, source provenance, run records, and artifacts"
+description = "Standalone local LLM backend with PostgreSQL FTS RAG, TurnPacket evidence capture, packet groups, metrics, and packet-native projections"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.109.0",
@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.5.0",
     "pyyaml>=6.0",
     "httpx>=0.26.0",
+    "psycopg[binary]>=3.2.0",
 ]
 
 [project.scripts]

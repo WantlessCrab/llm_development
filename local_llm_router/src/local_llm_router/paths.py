@@ -25,8 +25,8 @@ def default_config_path() -> Path:
     return config_dir() / "config.yaml"
 
 
-def default_db_path() -> Path:
-    return data_dir() / "router.sqlite"
+def default_prompt_wrappers_path() -> Path:
+    return config_dir() / "prompt_wrappers.yaml"
 
 
 def project_source_path() -> Path:

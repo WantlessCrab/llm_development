@@ -1,0 +1,66 @@
+version: 1
+
+prompt_wrappers:
+  code_review:
+    label: "Code review"
+    description: "Review code and report correctness, integration, and cleanup issues."
+    transform: "rstrip"
+    before: |
+      Please review the following code carefully.
+
+      Report:
+      1. correctness issues
+      2. integration risks
+      3. cleanup opportunities
+      4. exact recommended revisions
+
+      ```text
+    after: |
+
+      ```
+
+  basic_fence:
+    label: "Basic fenced block"
+    description: "Wrap routed text in a plain fenced block."
+    transform: "none"
+    before: |
+      ```text
+    after: |
+
+      ```
+
+  consult_review:
+    label: "Consult review"
+    description: "Review the following material for correctness, completeness, risk control, and project fit."
+    transform: "rstrip"
+    before: |
+      Please review the following material.
+
+      --- start material ---
+
+    after: |
+
+      --- end material ---
+
+  integrate_feedback:
+    label: "Integrate feedback"
+    description: "Ask the target model to integrate review feedback into a coherent final revision."
+    transform: "rstrip"
+    before: |
+      Please integrate the following feedback into the current implementation/proposal.
+
+      Preserve working behavior, remove return-debt, and produce the clean final version.
+
+      --- feedback ---
+
+    after: |
+
+      --- end feedback ---
+
+  markdown_quote:
+    label: "Markdown quote"
+    description: "Prefix each line as a Markdown quote block."
+    transform: "none"
+    line_prefix: "> "
+    before: ""
+    after: ""

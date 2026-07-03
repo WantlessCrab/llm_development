@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "03_cryptsetup.schema.json",
+  "title": "Recovery cryptsetup report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.cryptsetup.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "cryptsetup"
+        },
+        "script": {
+          "type": "string"
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "discover-target",
+        "assert-not-root",
+        "assert-not-rescuezilla-usb",
+        "assert-not-restore-target",
+        "assert-backup-hdd",
+        "prepare-luks2-vault",
+        "open",
+        "close",
+        "export-metadata",
+        "backup-header",
+        "verify-header",
+        "build-emergency-packet",
+        "verify-emergency-packet",
+        "smoke-open-close",
+        "gate",
+        "prepare-test-vault",
+        "open-test-vault",
+        "close-test-vault",
+        "destroy-test-vault"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/command_result"
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "vault": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "header_backup": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "emergency_packet": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "local_test": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "18_runbooks.schema.json",
+  "title": "Recovery runbooks human execution layer report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.runbooks.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "restore_runbooks"
+        },
+        "script": {
+          "type": "string"
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "retire-old-placeholders",
+        "check-completeness",
+        "render-index",
+        "generate-proof-bundle-index",
+        "assert-required-artifacts",
+        "validate-checklist",
+        "validate-stop-conditions"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "plan",
+        "capture",
+        "verify",
+        "guarded-move",
+        "render",
+        "summary",
+        null
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "runbooks": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "required_artifacts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "checklist": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "stop_conditions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "proof_bundle": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "source_gate": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "required_files": {
+      "$ref": "#/$defs/required_file_status"
+    }
+  },
+  "$defs": {
+    "required_file_status": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "non_executable_scripts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "empty_required_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "empty_unit_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invalid_json_schema_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "invalid_recovery_yaml_config_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "forbidden_files_present": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "checked_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

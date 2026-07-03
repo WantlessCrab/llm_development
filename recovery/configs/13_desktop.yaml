@@ -1,0 +1,80 @@
+version: 1
+
+tool:
+  name: desktop
+  verified_dconf_cli_version: "0.40.0-4ubuntu0.1"
+  verified_dconf_editor_version: "45.0.1-1build2"
+  layer: "13_desktop_session_user_experience_settings"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/13_desktop"
+  generated_root: "state/generated/13_desktop"
+
+commands:
+  dconf: "/usr/bin/dconf"
+  xrandr: "/usr/bin/xrandr"
+  loginctl: "/usr/bin/loginctl"
+  systemctl: "/usr/bin/systemctl"
+  pactl: "/usr/bin/pactl"
+  wpctl: "/usr/bin/wpctl"
+  xdg_mime: "/usr/bin/xdg-mime"
+  gio: "/usr/bin/gio"
+  python: "/usr/bin/python3"
+  sha256sum: "/usr/bin/sha256sum"
+
+policy:
+  copy_config_snapshot_into_run: true
+  report_name: "desktop_report.json"
+  generated_script_mode: "0600"
+  dconf_load_guard_env: "CONFIRM_DCONF_LOAD"
+  dconf_load_guard_value: "I_UNDERSTAND_THIS_MUTATES_DESKTOP_SETTINGS"
+  fail_if_dconf_missing: true
+  fail_if_not_cinnamon_x11_for_restore: true
+  fail_if_dbus_unavailable_for_restore: true
+  fail_if_display_unavailable_for_monitor_capture: false
+  copy_small_file_backed_configs: true
+  file_copy_max_bytes: 10485760
+  inventory_max_entries_per_root: 25000
+  hash_small_files: true
+  hash_max_bytes: 1048576
+  include_system_autostart_inventory: true
+  include_system_theme_inventory: false
+  include_xrandr_verbose: true
+  include_sysfs_edid: true
+  include_pactl_full_cards: false
+  include_pactl_full_sinks_sources: false
+  include_input_remapper_inventory: true
+  restore_preview_name: "desktop_restore_preview.md"
+
+session:
+  expected_desktop: "X-Cinnamon"
+  expected_session_type: "x11"
+  expected_display: ":0"
+
+dconf:
+  export_paths: "/org/cinnamon/;/org/gnome/desktop/;/org/nemo/;/org/gtk/settings/;/org/gnome/settings-daemon/;/org/cinnamon/settings-daemon/"
+  restore_allowed_paths: "/org/cinnamon/;/org/gnome/desktop/;/org/nemo/;/org/gtk/settings/;/org/gnome/settings-daemon/;/org/cinnamon/settings-daemon/"
+  wallpaper_keys: "/org/cinnamon/desktop/background/picture-uri;/org/gnome/desktop/background/picture-uri;/org/cinnamon/desktop/background/slideshow/image-source"
+
+files:
+  copy_roots: "~/.cinnamon/configs;~/.config/autostart;~/.config/gtk-3.0;~/.config/gtk-4.0;~/.config/nemo;~/.config/cinnamon-session;~/.local/share/applications;~/.config/mimeapps.list;~/.local/share/applications/mimeapps.list"
+  inventory_roots: "~/.local/share/cinnamon/applets;~/.local/share/cinnamon/desklets;~/.local/share/cinnamon/extensions;~/.themes;~/.icons;~/.local/share/themes;~/.local/share/icons;~/.config/dconf;~/.config/pulse;~/.config/pipewire;~/.config/wireplumber"
+  input_inventory_roots: "~/.config/input-remapper-2;~/.config/solaar;~/.config/piper;~/.local/share/input-remapper-2"
+  system_autostart_roots: "/etc/xdg/autostart"
+  system_theme_roots: "/usr/share/themes;/usr/share/icons;/usr/share/cinnamon/applets;/usr/share/cinnamon/desklets;/usr/share/cinnamon/extensions"
+
+monitor:
+  known_physical_map:
+    DisplayPort-5: "top / ONN 100027813"
+    HDMI-A-2: "center primary / Samsung LS27D300G"
+    DisplayPort-4: "left / Sceptre E24"
+    DisplayPort-3: "right / HP 25es"
+  preferred_framebuffer: ""
+  preferred_outputs: ""
+  preferred_layout_note: "Live capture is authoritative. Do not preserve stale hardcoded monitor geometry as a restore command."
+
+audio_input:
+  expected_default_sink_contains: "EDIFIER_M90"
+  expected_default_source_contains: "C920"
+  capture_commands: "pactl_info;pactl_short_cards;pactl_short_sinks;pactl_short_sources;wpctl_status"

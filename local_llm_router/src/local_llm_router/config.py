@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .paths import default_config_path, expand_path
 
@@ -17,6 +17,63 @@ class ServerConfig(BaseModel):
 class StorageConfig(BaseModel):
     database_path: str = "~/.local/share/local-llm-router/router.sqlite"
     audit_dir: str = "~/.local/share/local-llm-router/audit"
+
+
+class ProviderDiscoveryConfig(BaseModel):
+    enabled: bool = False
+    run_after_startup: bool = True
+    roots: list[str] = Field(
+        default_factory=lambda: ["/home/wantless/PycharmProjects/automation/model_runtimes"])
+    apply_runtime: bool = True
+    persist_report: bool = True
+    report_dir: str = "~/.cache/local-llm-router/provider_discovery"
+    add_only_ready: bool = True
+    include_offline_candidates: bool = True
+    probe_timeout_seconds: float = 10.0
+    provider_id_prefix: str = "local"
+    replace_existing: bool = False
+
+
+class LocalServiceTargetConfig(BaseModel):
+    label: str
+    authority: Literal["supervisor"] = "supervisor"
+    supervisor_name: str = ""
+    code_svc_command: str = "code-svc"
+    health_url: str
+    managed: bool = True
+
+
+class LocalServicesConfig(BaseModel):
+    enabled: bool = True
+    targets: dict[str, LocalServiceTargetConfig] = Field(default_factory=lambda: {
+        "local_llm": LocalServiceTargetConfig(
+            label="local_llm backend",
+            authority="supervisor",
+            supervisor_name="code-host:local-llm",
+            code_svc_command="code-svc",
+            health_url="http://127.0.0.1:8020/health",
+            managed=True,
+        ),
+        "local_llm_router": LocalServiceTargetConfig(
+            label="local_llm_router daemon",
+            authority="supervisor",
+            supervisor_name="code-host:local-llm-router",
+            code_svc_command="code-svc",
+            health_url="http://127.0.0.1:8015/health",
+            managed=True,
+        ),
+    })
+
+    @model_validator(mode="after")
+    def normalize_targets(self) -> "LocalServicesConfig":
+        defaults = {
+            "local_llm": "code-host:local-llm",
+            "local_llm_router": "code-host:local-llm-router",
+        }
+        for service_id, target in self.targets.items():
+            if not target.supervisor_name and service_id in defaults:
+                target.supervisor_name = defaults[service_id]
+        return self
 
 
 class ProviderCapabilitiesConfig(BaseModel):
@@ -74,6 +131,8 @@ class AppConfig(BaseModel):
     version: int = 1
     server: ServerConfig = Field(default_factory=ServerConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
+    provider_discovery: ProviderDiscoveryConfig = Field(default_factory=ProviderDiscoveryConfig)
+    local_services: LocalServicesConfig = Field(default_factory=LocalServicesConfig)
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     targets: dict[str, Any] = Field(default_factory=dict)
     wrappers: dict[str, WrapperConfig] = Field(default_factory=dict)
@@ -88,7 +147,7 @@ class AppConfig(BaseModel):
         return expand_path(self.storage.audit_dir)
 
 
-def _builtin_provider_defaults() -> dict[str, dict[str, Any]]:
+def _required_provider_defaults() -> dict[str, dict[str, Any]]:
     return {
         "local_draft": {
             "provider_id": "local_draft",
@@ -133,50 +192,15 @@ def _builtin_provider_defaults() -> dict[str, dict[str, Any]]:
             "config": {
                 "host_pattern": "https://chatgpt.com/*",
                 "extension_provider_key": "chatgpt",
-                "capture_provider_keys": ["chatgpt"],
-            },
-        },
-        "local_llm_primary": {
-            "provider_id": "local_llm_primary",
-            "provider_type": "local_llm_http",
-            "label": "Local LLM primary",
-            "enabled": True,
-            "availability": "needs_configuration",
-            "capabilities": {
-                "can_capture": True,
-                "can_receive": True,
-                "can_insert_draft": False,
-                "can_manual_send": True,
-                "can_dispatch_request": True,
-                "can_return_response": True,
-                "supports_browser_session": False,
-                "supports_http_session": True,
-                "supports_streaming": False,
-                "supports_queue_groups": True,
-                "supports_manual_review": True,
-            },
-            "config": {
-                "base_url": None,
-                "health_endpoint": None,
-                "chat_endpoint": None,
-                "method": "POST",
-                "request_format": None,
-                "response_format": None,
-                "response_text_path": None,
-                "model": None,
-                "timeout_seconds": 120,
-                "stream": False,
-                "system_prompt": None,
             },
         },
     }
 
 
-def _merge_builtin_providers(data: dict[str, Any]) -> dict[str, Any]:
+def _merge_required_providers(data: dict[str, Any]) -> dict[str, Any]:
     providers = dict(data.get("providers") or {})
-    for provider_id, provider_data in _builtin_provider_defaults().items():
-        if provider_id not in providers:
-            providers[provider_id] = provider_data
+    for provider_id, provider_data in _required_provider_defaults().items():
+        providers.setdefault(provider_id, provider_data)
     data["providers"] = providers
     return data
 
@@ -192,7 +216,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     if not isinstance(data, dict):
         raise ValueError(f"config root must be mapping: {config_path}")
 
-    data = _merge_builtin_providers(data)
+    data = _merge_required_providers(data)
 
     config = AppConfig.model_validate(data)
     if config.version != 1:

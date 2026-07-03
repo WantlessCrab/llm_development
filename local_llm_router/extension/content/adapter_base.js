@@ -42,10 +42,189 @@ LLMR.api = async function api(path, options = {}) {
     return body;
 };
 
+
+LLMR.PROMPT_WRAPPER_SELECTION_KEY = "llmr.promptWrapperSelection.v1";
+
+LLMR.promptWrapperSelectionStorageKey = function promptWrapperSelectionStorageKey({
+                                                                                      sourceSessionId = "global",
+                                                                                      queueGroupId = "default"
+                                                                                  } = {}) {
+    return `${sourceSessionId || "global"}::${queueGroupId || "default"}`;
+};
+
+LLMR.listPromptWrappers = async function listPromptWrappers() {
+    return LLMR.api("/api/v1/prompt-wrappers");
+};
+
+LLMR.applyPromptWrapper = async function applyPromptWrapper({wrapperId, text} = {}) {
+    return LLMR.api("/api/v1/prompt-wrappers/apply", {
+        method: "POST",
+        body: JSON.stringify({wrapper_id: wrapperId, text: String(text || "")})
+    });
+};
+
+LLMR.getPromptWrapperSelections = async function getPromptWrapperSelections() {
+    const value = await LLMR.storageGet(LLMR.PROMPT_WRAPPER_SELECTION_KEY);
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+};
+
+LLMR.getPromptWrapperSelection = async function getPromptWrapperSelection({sourceSessionId, queueGroupId} = {}) {
+    const selections = await LLMR.getPromptWrapperSelections();
+    return selections[LLMR.promptWrapperSelectionStorageKey({sourceSessionId, queueGroupId})] || {
+        enabled: false,
+        wrapper_id: null
+    };
+};
+
+LLMR.setPromptWrapperSelection = async function setPromptWrapperSelection({
+                                                                              sourceSessionId,
+                                                                              queueGroupId,
+                                                                              enabled,
+                                                                              wrapperId
+                                                                          } = {}) {
+    const selections = await LLMR.getPromptWrapperSelections();
+    selections[LLMR.promptWrapperSelectionStorageKey({sourceSessionId, queueGroupId})] = {
+        enabled: Boolean(enabled),
+        wrapper_id: enabled ? (wrapperId || null) : null,
+        updated_at: new Date().toISOString()
+    };
+    await LLMR.storageSet(LLMR.PROMPT_WRAPPER_SELECTION_KEY, selections);
+    return selections;
+};
+
 LLMR.postCapture = async function postCapture(payload) {
     return LLMR.api("/api/v1/capture", {
         method: "POST",
         body: JSON.stringify(payload)
+    });
+};
+
+
+LLMR.statusDetail = async function statusDetail() {
+    return LLMR.api("/api/v1/status/detail");
+};
+
+LLMR.listProviderSessions = async function listProviderSessions() {
+    const data = await LLMR.api("/api/v1/provider-sessions");
+    return data.provider_sessions || [];
+};
+
+LLMR.setSessionLabel = async function setSessionLabel({
+                                                          sourceSessionId,
+                                                          provider = "chatgpt",
+                                                          label,
+                                                          labelSource = "user_saved"
+                                                      } = {}) {
+    return LLMR.api("/api/v1/sessions/label", {
+        method: "POST",
+        body: JSON.stringify({
+            source_session_id: sourceSessionId,
+            provider,
+            label,
+            label_source: labelSource
+        })
+    });
+};
+
+LLMR.listProviders = async function listProviders() {
+    return LLMR.api("/api/v1/providers");
+};
+
+LLMR.probeProvider = async function probeProvider(providerId) {
+    return LLMR.api(`/api/v1/providers/${encodeURIComponent(providerId)}/probe`, {
+        method: "POST"
+    });
+};
+
+LLMR.dispatchToProvider = async function dispatchToProvider(providerId, {
+    deliveryId,
+    queueGroupId = null,
+    manualConfirmed = true,
+    options = {}
+} = {}) {
+    return LLMR.api(`/api/v1/providers/${encodeURIComponent(providerId)}/dispatch`, {
+        method: "POST",
+        body: JSON.stringify({
+            delivery_id: deliveryId,
+            queue_group_id: queueGroupId,
+            manual_confirmed: manualConfirmed,
+            options: options || {}
+        })
+    });
+};
+
+
+LLMR.executeRouteAction = async function executeRouteAction(payload) {
+    return LLMR.api("/api/v1/route-actions/execute", {
+        method: "POST",
+        body: JSON.stringify(payload || {})
+    });
+};
+
+LLMR.listLocalServices = async function listLocalServices({target = null} = {}) {
+    const params = new URLSearchParams();
+    if (target) params.set("target", target);
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return LLMR.api(`/api/v1/local-services/status${suffix}`);
+};
+
+LLMR.localServiceAction = async function localServiceAction(action, {target = null} = {}) {
+    return LLMR.api(`/api/v1/local-services/${encodeURIComponent(action)}`, {
+        method: "POST",
+        body: JSON.stringify({target})
+    });
+};
+
+LLMR.queueProviderFilterForSourceMode = function queueProviderFilterForSourceMode(sourceMode, {providerId = null} = {}) {
+    if (sourceMode === "chatgpt_captures") return "chatgpt";
+    if (sourceMode === "provider_responses" && providerId) return providerId;
+    return null;
+};
+
+LLMR.isProviderResponseDraft = function isProviderResponseDraft(draft) {
+    return Boolean(draft && draft.provider && draft.provider !== "chatgpt");
+};
+
+LLMR.getQueuedDraftsBySourceMode = async function getQueuedDraftsBySourceMode({
+                                                                                  sourceMode = "all_insertable",
+                                                                                  excludeSourceSessionId = null,
+                                                                                  providerId = null,
+                                                                                  queueGroupId = null
+                                                                              } = {}) {
+    const provider = LLMR.queueProviderFilterForSourceMode(sourceMode, {providerId});
+    const drafts = await LLMR.getQueuedDrafts({
+        excludeSourceSessionId,
+        provider,
+        queueGroupId
+    });
+    if (sourceMode === "provider_responses" && !providerId) {
+        return drafts.filter(LLMR.isProviderResponseDraft);
+    }
+    return drafts;
+};
+
+LLMR.getNextDraftBySourceMode = async function getNextDraftBySourceMode({
+                                                                            sourceMode = "all_insertable",
+                                                                            excludeSourceSessionId = null,
+                                                                            providerId = null,
+                                                                            queueGroupId = null
+                                                                        } = {}) {
+    const provider = LLMR.queueProviderFilterForSourceMode(sourceMode, {providerId});
+    if (sourceMode === "provider_responses" && !providerId) {
+        const drafts = await LLMR.getQueuedDraftsBySourceMode({
+            sourceMode,
+            excludeSourceSessionId,
+            providerId,
+            queueGroupId
+        });
+        return drafts.length
+            ? {found: true, draft: drafts[0], reason: null}
+            : {found: false, draft: null, reason: "no queued provider response matched request"};
+    }
+    return LLMR.getNextDraft({
+        excludeSourceSessionId,
+        provider,
+        queueGroupId
     });
 };
 
@@ -179,23 +358,58 @@ LLMR.setSessionQueueGroup = async function setSessionQueueGroup({
     });
 };
 
+LLMR.isExtensionContextInvalidatedError = function isExtensionContextInvalidatedError(error) {
+    const text = String(error?.message || error || "").toLowerCase();
+    return text.includes("extension context invalidated") || text.includes("context invalidated");
+};
+
 LLMR.storageGet = function storageGet(key) {
     return new Promise(resolve => {
-        if (typeof chrome === "undefined" || !chrome.storage?.local) {
+        try {
+            if (typeof chrome === "undefined" || !chrome.storage?.local) {
+                resolve(null);
+                return;
+            }
+            chrome.storage.local.get(key, result => {
+                const err = chrome.runtime?.lastError;
+                if (err) {
+                    console.debug("[local_llm_router] chrome.storage.local.get skipped", key, err.message);
+                    resolve(null);
+                    return;
+                }
+                resolve(result?.[key] ?? null);
+            });
+        } catch (err) {
+            if (!LLMR.isExtensionContextInvalidatedError(err)) {
+                console.debug("[local_llm_router] storageGet failed", key, err);
+            }
             resolve(null);
-            return;
         }
-        chrome.storage.local.get(key, result => resolve(result?.[key] ?? null));
     });
 };
 
 LLMR.storageSet = function storageSet(key, value) {
     return new Promise(resolve => {
-        if (typeof chrome === "undefined" || !chrome.storage?.local) {
+        try {
+            if (typeof chrome === "undefined" || !chrome.storage?.local) {
+                resolve(false);
+                return;
+            }
+            chrome.storage.local.set({[key]: value}, () => {
+                const err = chrome.runtime?.lastError;
+                if (err) {
+                    console.debug("[local_llm_router] chrome.storage.local.set skipped", key, err.message);
+                    resolve(false);
+                    return;
+                }
+                resolve(true);
+            });
+        } catch (err) {
+            if (!LLMR.isExtensionContextInvalidatedError(err)) {
+                console.debug("[local_llm_router] storageSet failed", key, err);
+            }
             resolve(false);
-            return;
         }
-        chrome.storage.local.set({[key]: value}, () => resolve(true));
     });
 };
 

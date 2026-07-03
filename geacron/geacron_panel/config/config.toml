@@ -1,0 +1,71 @@
+# config/config.toml
+
+[general]
+name = "GeaCron Live Map Panel"
+url = "https://geacron.com/home-en/"
+chrome_binary = "google-chrome"
+chrome_extra_args = []
+window_title_hint = "GeaCron"
+default_mode = "desktop"
+log_level = "INFO"
+
+[window]
+monitor = "DisplayPort-5"
+x = 1586
+y = 0
+width = 1680
+height = 1050
+always_on_top = false
+sticky = false
+workspace = -1
+desktop_fill_monitor = true
+desktop_fullscreen = false
+desktop_layer = "below"
+opacity = 0.950
+respect_work_area = true
+taskbar_bottom_margin_fallback = 40
+
+[viewport]
+enabled = true
+mode = "auto_map_shell"
+extension_dir = "extension/geacron_viewport"
+fallback_mode = "plain_page"
+
+[map_labels]
+no_select = true
+
+[location_redirect]
+enabled = true
+mode = "jstor"
+open_target = "_blank"
+
+[location_redirect.profiles.google]
+label = "Google"
+url_template = "https://www.google.com/search?q={coArea}+{date}"
+
+[location_redirect.profiles.wikipedia]
+label = "Wiki"
+url_template = "https://en.wikipedia.org/wiki/Special:Search?search={coArea}"
+
+[location_redirect.profiles.britannica]
+label = "Britannica"
+url_template = "https://www.britannica.com/search?query={coArea}+{date}"
+
+[location_redirect.profiles.jstor]
+label = "JSTOR"
+url_template = "https://www.jstor.org/action/doBasicSearch?Query={coArea}+{date}&so=rel"
+
+[monitor_contract]
+name = "DisplayPort-5"
+label = "top / ONN 100027813"
+expected_x = 1586
+expected_y = 0
+expected_width = 1680
+expected_height = 1050
+
+[safety]
+require_x11 = true
+refuse_root_for_launch = true
+require_configured_monitor_for_desktop = true
+require_monitor_contract_match_for_desktop = true
+allow_xdotool_force_close = true

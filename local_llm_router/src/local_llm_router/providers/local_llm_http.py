@@ -34,6 +34,66 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
         cfg = self.config.config or {}
         return [key for key in self.required_config_keys if not cfg.get(key)]
 
+    def _base_url(self) -> str:
+        cfg = self.config.config or {}
+        return str(cfg["base_url"]).rstrip("/") + "/"
+
+    def _endpoint_url(self, endpoint: str | None) -> str | None:
+        if not endpoint:
+            return None
+        # Preserve relative endpoints such as ../health from a /v1 base URL.
+        return urljoin(self._base_url(), str(endpoint).strip())
+
+    def _headers(self, *, include_json: bool = False) -> dict[str, str]:
+        cfg = self.config.config or {}
+        headers: dict[str, str] = {}
+
+        if include_json:
+            headers["Content-Type"] = "application/json"
+
+        authorization = cfg.get("authorization")
+        token = cfg.get("token")
+        api_key = cfg.get("api_key")
+
+        if authorization:
+            headers["Authorization"] = str(authorization)
+        elif token:
+            headers["Authorization"] = f"Bearer {token}"
+        elif api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        return headers
+
+    def _request_timeout(self, fallback: float = 10.0) -> float:
+        cfg = self.config.config or {}
+        try:
+            value = float(cfg.get("timeout_seconds", fallback))
+        except (TypeError, ValueError):
+            value = fallback
+        return max(1.0, value)
+
+    def _read_json_get(self, url: str, *, timeout: float) -> tuple[int, dict[str, Any]]:
+        req = urllib.request.Request(url, method="GET", headers=self._headers())
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            raw = res.read().decode("utf-8", errors="replace")
+            parsed = json.loads(raw)
+            if not isinstance(parsed, dict):
+                raise ValueError("response root must be a JSON object")
+            return int(res.status), parsed
+
+    def _read_text_get(self, url: str, *, timeout: float) -> tuple[int, str]:
+        req = urllib.request.Request(url, method="GET", headers=self._headers())
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            body = res.read(4096).decode("utf-8", errors="replace")
+            return int(res.status), body
+
+    @staticmethod
+    def _model_ids_from_models_payload(payload: dict[str, Any]) -> list[str]:
+        data = payload.get("data", [])
+        if not isinstance(data, list):
+            return []
+        return [str(item.get("id")) for item in data if isinstance(item, dict) and item.get("id")]
+
     async def probe(self) -> ProviderProbeResult:
         if not self.config.enabled:
             return ProviderProbeResult(
@@ -55,61 +115,159 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
             )
 
         cfg = self.config.config or {}
-        base_url = str(cfg["base_url"]).rstrip("/") + "/"
-        health_endpoint = cfg.get("health_endpoint")
-        if not health_endpoint:
+        base_url = self._base_url()
+        health_url = self._endpoint_url(cfg.get("health_endpoint"))
+        models_url = self._endpoint_url(cfg.get("models_endpoint"))
+        chat_url = self._endpoint_url(cfg.get("chat_endpoint"))
+        timeout = self._request_timeout(10.0)
+
+        details: dict[str, Any] = {
+            "base_url": base_url,
+            "health_url": health_url,
+            "models_url": models_url,
+            "chat_url": chat_url,
+            "model": cfg.get("model"),
+        }
+
+        if health_url:
+            try:
+                health_status, health_body = await asyncio.to_thread(
+                    self._read_text_get,
+                    health_url,
+                    timeout=timeout,
+                )
+            except Exception as exc:
+                details["health_error"] = str(exc)
+                return ProviderProbeResult(
+                    ok=False,
+                    provider_id=self.provider_id,
+                    availability="unavailable",
+                    message=f"Health endpoint unavailable: {exc}",
+                    details=details,
+                )
+
+            details["health_status"] = health_status
+            details["health_body_sample"] = health_body[:500]
+
+            if health_status < 200 or health_status >= 300:
+                return ProviderProbeResult(
+                    ok=False,
+                    provider_id=self.provider_id,
+                    availability="error",
+                    message=f"Health endpoint returned HTTP {health_status}.",
+                    details=details,
+                )
+
+        if models_url:
+            try:
+                models_status, models_payload = await asyncio.to_thread(
+                    self._read_json_get,
+                    models_url,
+                    timeout=timeout,
+                )
+            except Exception as exc:
+                details["models_error"] = str(exc)
+                return ProviderProbeResult(
+                    ok=False,
+                    provider_id=self.provider_id,
+                    availability="unavailable",
+                    message=f"Models endpoint unavailable or invalid: {exc}",
+                    details=details,
+                )
+
+            model_ids = self._model_ids_from_models_payload(models_payload)
+            expected_model = cfg.get("model")
+            served_model_found = bool(expected_model and expected_model in model_ids)
+
+            details.update(
+                {
+                    "models_status": models_status,
+                    "served_model_ids": model_ids,
+                    "served_model_found": served_model_found,
+                }
+            )
+
+            if models_status < 200 or models_status >= 300:
+                return ProviderProbeResult(
+                    ok=False,
+                    provider_id=self.provider_id,
+                    availability="error",
+                    message=f"Models endpoint returned HTTP {models_status}.",
+                    details=details,
+                )
+
+            if expected_model and not served_model_found:
+                return ProviderProbeResult(
+                    ok=False,
+                    provider_id=self.provider_id,
+                    availability="unavailable",
+                    message=f"Configured model {expected_model!r} not found in models endpoint.",
+                    details=details,
+                )
+
+        if not health_url and not models_url:
             return ProviderProbeResult(
                 ok=True,
                 provider_id=self.provider_id,
                 availability="ready",
-                message="Required local LLM dispatch configuration is present. No health endpoint configured.",
-                details={"base_url": base_url},
-            )
-
-        health_url = urljoin(base_url, str(health_endpoint).lstrip("/"))
-
-        def _request() -> tuple[int, str]:
-            req = urllib.request.Request(health_url, method="GET")
-            with urllib.request.urlopen(req, timeout=float(cfg.get("timeout_seconds", 10))) as res:
-                body = res.read(2048).decode("utf-8", errors="replace")
-                return int(res.status), body
-
-        try:
-            status, body = await asyncio.to_thread(_request)
-        except Exception as exc:
-            return ProviderProbeResult(
-                ok=False,
-                provider_id=self.provider_id,
-                availability="unavailable",
-                message=f"Health endpoint unavailable: {exc}",
-                details={"health_url": health_url},
+                message="Required local LLM dispatch configuration is present. No health/models endpoint configured.",
+                details=details,
             )
 
         return ProviderProbeResult(
-            ok=200 <= status < 300,
+            ok=True,
             provider_id=self.provider_id,
-            availability="ready" if 200 <= status < 300 else "error",
-            message=f"Health endpoint returned HTTP {status}.",
-            details={"health_url": health_url, "body_sample": body[:500]},
+            availability="ready",
+            message="Local LLM provider is reachable and served model validation passed.",
+            details=details,
         )
 
     def _prompt_from_delivery(self, delivery: DraftItem) -> str:
         return delivery.wrapped_body_markdown or delivery.wrapped_body or ""
 
-    def _build_request_body(self, delivery: DraftItem) -> dict[str, Any]:
+    def _configured_generation_options(self, request: ProviderDispatchRequest | None = None) -> \
+    dict[str, Any]:
+        cfg = self.config.config or {}
+        options: dict[str, Any] = {}
+
+        for key in [
+            "temperature",
+            "max_tokens",
+            "top_p",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop",
+            "seed",
+        ]:
+            if cfg.get(key) is not None:
+                options[key] = cfg[key]
+
+        if request is not None:
+            for key, value in (request.options or {}).items():
+                if value is not None:
+                    options[key] = value
+
+        return options
+
+    def _build_request_body(
+            self,
+            delivery: DraftItem,
+            request: ProviderDispatchRequest | None = None,
+    ) -> dict[str, Any]:
         cfg = self.config.config or {}
         prompt = self._prompt_from_delivery(delivery)
         request_format = cfg.get("request_format")
         model = cfg.get("model")
         stream = bool(cfg.get("stream", False))
         system_prompt = cfg.get("system_prompt")
+        generation_options = self._configured_generation_options(request)
 
         if request_format == "openai_chat_compatible":
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
-            body = {"messages": messages, "stream": stream}
+            body: dict[str, Any] = {"messages": messages, "stream": stream, **generation_options}
             if model:
                 body["model"] = model
             return body
@@ -119,16 +277,16 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
-            return {"model": model, "messages": messages, "stream": stream}
+            return {"model": model, "messages": messages, "stream": stream, **generation_options}
 
         if request_format == "ollama_generate":
-            body = {"model": model, "prompt": prompt, "stream": stream}
+            body = {"model": model, "prompt": prompt, "stream": stream, **generation_options}
             if system_prompt:
                 body["system"] = system_prompt
             return body
 
         if request_format == "plain_text_prompt":
-            body = {"prompt": prompt, "stream": stream}
+            body = {"prompt": prompt, "stream": stream, **generation_options}
             if model:
                 body["model"] = model
             if system_prompt:
@@ -154,19 +312,22 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
         response_format = cfg.get("response_format")
 
         if response_format == "openai_chat_compatible":
-            return str(data["choices"][0]["message"]["content"])
+            value = data["choices"][0]["message"].get("content")
+            return str(value or "")
 
         if response_format == "ollama_chat":
-            return str(data["message"]["content"])
+            value = data["message"].get("content")
+            return str(value or "")
 
         if response_format == "ollama_generate":
-            return str(data["response"])
+            return str(data.get("response") or "")
 
         if response_format == "custom_json_path":
             path = cfg.get("response_text_path")
             if not path:
                 raise ValueError("response_text_path required for custom_json_path")
-            return str(self._get_json_path(data, str(path)))
+            value = self._get_json_path(data, str(path))
+            return str(value or "")
 
         raise ValueError(f"unsupported response_format: {response_format}")
 
@@ -198,10 +359,19 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
             )
 
         cfg = self.config.config or {}
-        base_url = str(cfg["base_url"]).rstrip("/") + "/"
-        chat_url = urljoin(base_url, str(cfg["chat_endpoint"]).lstrip("/"))
-        timeout = float(cfg.get("timeout_seconds", 120))
-        body = self._build_request_body(delivery)
+        chat_url = self._endpoint_url(cfg.get("chat_endpoint"))
+        if not chat_url:
+            return ProviderDispatchResponse(
+                ok=False,
+                provider_id=self.provider_id,
+                delivery_id=delivery.delivery_id,
+                status="blocked",
+                message="chat_endpoint is not configured.",
+                error_code="missing_chat_endpoint",
+            )
+
+        timeout = self._request_timeout(120.0)
+        body = self._build_request_body(delivery, request)
 
         def _request() -> dict[str, Any]:
             raw = json.dumps(body).encode("utf-8")
@@ -209,7 +379,7 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
                 chat_url,
                 data=raw,
                 method=str(cfg.get("method", "POST")).upper(),
-                headers={"Content-Type": "application/json"},
+                headers=self._headers(include_json=True),
             )
             with urllib.request.urlopen(req, timeout=timeout) as res:
                 response_body = res.read().decode("utf-8", errors="replace")
@@ -221,6 +391,17 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
         try:
             data = await asyncio.to_thread(_request)
             text = self._extract_response_text(data).strip()
+        except urllib.error.HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")[:1000]
+            return ProviderDispatchResponse(
+                ok=False,
+                provider_id=self.provider_id,
+                delivery_id=delivery.delivery_id,
+                status="failed",
+                message=f"Local LLM dispatch failed with HTTP {exc.code}: {error_body}",
+                error_code="dispatch_http_error",
+                details={"chat_url": chat_url, "status_code": exc.code},
+            )
         except Exception as exc:
             return ProviderDispatchResponse(
                 ok=False,
@@ -250,6 +431,7 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
                 "provider_id": self.provider_id,
                 "provider_type": self.provider_type,
                 "parent_delivery_id": delivery.delivery_id,
+                "model": cfg.get("model"),
             },
         )
 
@@ -260,5 +442,5 @@ class LocalLLMHttpProviderConnector(ProviderConnector):
             status="response_received",
             message="Local LLM response received.",
             generated_format_capture=generated,
-            details={"chat_url": chat_url},
+            details={"chat_url": chat_url, "model": cfg.get("model")},
         )

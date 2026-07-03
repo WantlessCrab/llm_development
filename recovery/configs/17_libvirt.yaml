@@ -1,0 +1,74 @@
+version: 1
+
+tool:
+  name: libvirt
+  verified_virsh_version: "10.0.0"
+  verified_qemu_img_version: "8.2.2"
+  verified_virt_manager_version: "4.1.0"
+  verified_swtpm_version: "0.7.3"
+  verified_virt_viewer: "installed"
+  verified_virt_install: "installed"
+  verified_swtpm_setup: "installed"
+  layer: "17_future_windows_vm_host_side_recovery"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/17_libvirt"
+  generated_root: "state/generated/17_libvirt"
+
+commands:
+  virsh: "/usr/bin/virsh"
+  qemu_img: "/usr/bin/qemu-img"
+  virt_manager: "/usr/bin/virt-manager"
+  virt_viewer: "/usr/bin/virt-viewer"
+  virt_install: "/usr/bin/virt-install"
+  swtpm: "/usr/bin/swtpm"
+  swtpm_setup: "/usr/bin/swtpm_setup"
+  systemctl: "/usr/bin/systemctl"
+  getent: "/usr/bin/getent"
+  id: "/usr/bin/id"
+  find: "/usr/bin/find"
+
+libvirt:
+  uri: "qemu:///system"
+  expected_default_network: "default"
+  expected_default_bridge: "virbr0"
+  known_disk_roots: "/var/lib/libvirt/images;/home/wantless/PycharmProjects/automation/recovery/state/vm_cold_copies"
+  allowed_disk_extensions: ".qcow2;.raw;.img;.vmdk;.vdi"
+  ovmf_reference_roots: "/usr/share/OVMF;/usr/share/ovmf;/var/lib/libvirt/qemu/nvram"
+  nvram_roots: "/var/lib/libvirt/qemu/nvram;/etc/libvirt/qemu/nvram"
+  swtpm_roots: "/var/lib/libvirt/swtpm;/var/lib/swtpm"
+  virtio_iso_candidates: "/usr/share/virtio-win/virtio-win.iso;/var/lib/libvirt/images/virtio-win.iso;/home/wantless/Downloads/virtio-win.iso"
+  service_units: "libvirtd.service;libvirtd.socket;libvirtd-ro.socket;libvirtd-admin.socket;virtqemud.service;virtqemud.socket;virtlogd.service;virtlogd.socket;virtlockd.service;virtlockd.socket;libvirt-guests.service;qemu-kvm.service;run-qemu.mount;machines.target"
+  qemu_img_check_formats: "qcow2;qed;vdi;vmdk"
+  critical_groups: "libvirt;kvm;libvirt-qemu;swtpm"
+  critical_users: "swtpm;libvirt-qemu"
+  max_disk_scan_entries: 5000
+
+policy:
+  copy_config_snapshot_into_run: true
+  report_name: "libvirt_report.json"
+  generated_restore_plan_name: "libvirt_vm_restore_plan.md"
+  generated_define_plan_name: "libvirt_define_domain_plan.md"
+  generated_smoke_plan_name: "libvirt_vm_smoke_plan.md"
+  generated_script_mode: "0600"
+  fail_if_virsh_missing: true
+  fail_if_qemu_img_missing: true
+  fail_if_system_uri_unavailable: true
+  fail_if_qemu_img_check_nonzero: true
+  fail_if_live_disk_copy: true
+  require_inactive_domain_for_disk_check: true
+  qemu_img_check_runs_readonly: true
+  qemu_img_check_forbid_repair: true
+  copy_domain_xml: true
+  copy_network_xml: true
+  copy_pool_xml: true
+  secret_values_never_read: true
+  capture_secret_xml_only: true
+  nvram_payload_not_copied: true
+  swtpm_payload_not_copied: true
+  disk_payload_not_copied: true
+  rsync_cold_copy_owner: "Row 05 rsync"
+  in_guest_windows_backup_owner: "out of Row 17 scope"
+  bitlocker_tpm_warning_required: true
+  no_mutating_virsh_commands: true

@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "04_integrity.schema.json",
+  "title": "Recovery integrity report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.integrity.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "integrity"
+        },
+        "script": {
+          "type": "string"
+        },
+        "sha256sum_path": {
+          "type": "string"
+        },
+        "b3sum_path": {
+          "type": "string"
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "write-sha256",
+        "check-sha256",
+        "write-b3sum",
+        "check-b3sum",
+        "hash-class",
+        "hash-critical",
+        "verify-restore-gate"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_result"
+      }
+    },
+    "manifest": {
+      "$ref": "#/$defs/manifest_report"
+    },
+    "manifests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/manifest_report"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check_report"
+      }
+    },
+    "classes": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/class_report"
+      }
+    },
+    "restore_gate": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    },
+    "manifest_report": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "manifest_path",
+        "root",
+        "file_count",
+        "ok"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "sha256",
+            "b3sum"
+          ]
+        },
+        "manifest_path": {
+          "type": "string"
+        },
+        "json_path": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string"
+        },
+        "file_count": {
+          "type": "integer"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hash_entry"
+          }
+        }
+      }
+    },
+    "check_report": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "manifest_path",
+        "root",
+        "ok",
+        "checked_count"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "sha256",
+            "b3sum"
+          ]
+        },
+        "manifest_path": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "checked_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "hash_entry": {
+      "type": "object",
+      "required": [
+        "relative_path",
+        "size_bytes",
+        "hash"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "relative_path": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "type": "integer"
+        },
+        "hash": {
+          "type": "string"
+        }
+      }
+    },
+    "class_report": {
+      "type": "object",
+      "required": [
+        "class_name",
+        "ok",
+        "failures",
+        "warnings",
+        "paths",
+        "files"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "class_name": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "07_borgmatic.schema.json",
+  "title": "Recovery borgmatic report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.borgmatic.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script",
+        "borgmatic_path",
+        "borg_path"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "borgmatic"
+        },
+        "script": {
+          "type": "string"
+        },
+        "borgmatic_path": {
+          "type": "string"
+        },
+        "borg_path": {
+          "type": "string"
+        },
+        "borgmatic_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "borg_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "assert-version",
+        "generate-reference",
+        "validate",
+        "dry-run",
+        "repo-create-guarded",
+        "backup",
+        "check",
+        "prune-compact",
+        "verify-cycle",
+        "show-config"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "config_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "repository": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "dry-run",
+        "execute",
+        "assert",
+        "summary",
+        null
+      ]
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_result"
+      }
+    },
+    "borgmatic": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "generated_config": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "hook_plan": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

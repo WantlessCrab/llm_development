@@ -1,4 +1,4 @@
-
+# /home/wantless/PycharmProjects/automation/.gitignore
 # ===== automation root safety ignores =====
 
 # Python / build
@@ -13,7 +13,7 @@ dist/
 build/
 *.egg-info/
 
-# Local env / secrets
+# Local env / private
 .env
 *.env
 .env.*
@@ -32,6 +32,7 @@ logs/
 tmp/
 temp/
 .cache/
+*cache/
 
 # Local databases / runtime state
 *.sqlite
@@ -55,8 +56,25 @@ tts_models/
 *.tar
 *.tar.gz
 *.zip
+archive/
 
 # Local backup artifacts
 .gitignore.backup.*
 *.backup.*
 *.bak
+
+# outputs
+downloads/
+state/recovery/downloads/*.iso
+*:Zone.Identifier
+recovery/downloads/
+recovery/downloads/*.iso
+data_stack/backups/
+data_stack/exports/
+data_stack/imports/
+scratch
+recovery/state/
+recovery/archive/
+recovery/tmp/
+recovery/temp/
+wvmr/state/

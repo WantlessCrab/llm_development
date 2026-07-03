@@ -7,11 +7,12 @@ from local_llm.contracts import IngestResponse, WarningItem
 from local_llm.corpus.chunker import chunk_text
 from local_llm.corpus.extractors import extract_text
 from local_llm.corpus.scanner import scan_corpus
-from local_llm.corpus.sources import stable_chunk_id, stable_document_id, stable_source_id, title_from_path
-from local_llm.store.sqlite_store import SQLiteStore
+from local_llm.corpus.sources import stable_chunk_id, stable_document_id, stable_source_id, \
+    title_from_path
+from local_llm.store.base import StoreProtocol
 
 
-def ingest_corpus(config: AppConfig, store: SQLiteStore, corpus_id: str) -> IngestResponse:
+def ingest_corpus(config: AppConfig, store: StoreProtocol, corpus_id: str) -> IngestResponse:
     corpus = config.corpora.get(corpus_id)
     if not corpus:
         raise KeyError(f"corpus not found: {corpus_id}")

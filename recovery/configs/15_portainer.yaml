@@ -1,0 +1,71 @@
+version: 1
+
+tool:
+  name: portainer
+  verified_active_image: "portainer/portainer-ce:latest"
+  verified_staged_lts_image: "portainer/portainer-ce:2.39.2"
+  layer: "15_portainer_management_ui_workload"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/15_portainer"
+  generated_root: "state/generated/15_portainer"
+  export_root: "state/exports/15_portainer"
+
+commands:
+  docker: "/usr/bin/docker"
+  python: "/usr/bin/python3"
+
+portainer:
+  active_container_name: "portainer"
+  active_image_observed: "portainer/portainer-ce:latest"
+  staged_lts_image: "portainer/portainer-ce:2.39.2"
+  restore_image_authority: "portainer/portainer-ce:2.39.2"
+  disallowed_restore_tags: "latest;lts"
+  data_volume_name: "portainer_data"
+  data_volume_target: "/data"
+  expected_https_ui: "https://127.0.0.1:9443"
+  expected_legacy_http_ui: "http://127.0.0.1:9000"
+  status_paths: "/api/status;/api/system/status"
+  management_ports: "9443;9000;8000"
+  docker_socket_source: "/var/run/docker.sock"
+  docker_socket_target: "/var/run/docker.sock"
+  active_image_aliases: "portainer/portainer-ce:latest;portainer/portainer-ce:lts"
+  staged_image_aliases: "portainer/portainer-ce:2.39.2;portainer/portainer-ce:lts"
+
+policy:
+  copy_config_snapshot_into_run: true
+  report_name: "portainer_report.json"
+  restore_plan_name: "portainer_restore_plan.md"
+  recreate_command_name: "portainer_recreate_review.sh"
+  generated_script_mode: "0600"
+  fail_if_docker_missing: true
+  fail_if_daemon_unavailable: false
+  active_latest_is_runtime_state_only: true
+  restore_image_must_be_pinned: true
+  require_staged_lts_image_for_restore_gate: true
+  redact_env_values: true
+  env_name_capture_only: true
+  redact_secret_like_labels: true
+  copy_bind_mount_payloads: false
+  hash_bind_mount_files: false
+  export_staged_image_requires_execute: true
+  staged_image_export_guard_prefix: "PORTAINER_IMAGE_EXPORT"
+  staged_image_export_guard_env: "CONFIRM_PORTAINER_IMAGE_EXPORT"
+  staged_image_export_guard_value: "I_UNDERSTAND_THIS_EXPORTS_PORTAINER_IMAGE_TAR"
+  volume_export_requires_execute: true
+  volume_export_guard_prefix: "PORTAINER_VOLUME_EXPORT"
+  volume_export_guard_env: "CONFIRM_PORTAINER_VOLUME_EXPORT"
+  volume_export_guard_value: "I_UNDERSTAND_THIS_EXPORTS_STOPPED_PORTAINER_DATA_VOLUME"
+  require_quiesced_volume_export: true
+  volume_export_helper_image: "busybox:latest"
+  helper_image_must_exist_locally: true
+  no_auto_pull: true
+  no_container_start_stop_remove_by_default: true
+  portainer_restores_after: "Row 14 Docker healthy; Row 10 Docker package installed; Borg file payload restored as needed"
+
+sensitive:
+  label_key_patterns: "secret;token;password;passwd;credential;apikey;api_key;auth;license;key"
+  env_name_patterns: "SECRET;TOKEN;PASSWORD;PASSWD;CREDENTIAL;APIKEY;API_KEY;AUTH;LICENSE;KEY"
+  bind_path_sensitive_parts: "/certs;/ssl;/secrets;/keys;.pem;.key;.crt;/run/secrets"
+  command_secret_flags: "--password;--passwd;--token;--secret;--key;--api-key;--apikey;--auth;--jwt"

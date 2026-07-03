@@ -1,0 +1,66 @@
+version: 1
+
+tool:
+  name: flatpak
+  verified_flatpak_version: "1.14.6"
+  layer: "11_flatpak_app_runtime_remote_override_reinstall"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/11_flatpak"
+  generated_root: "state/generated/11_flatpak"
+
+commands:
+  flatpak: "/usr/bin/flatpak"
+  sha256sum: "/usr/bin/sha256sum"
+
+policy:
+  copy_config_snapshot_into_run: true
+  report_name: "flatpak_report.json"
+  restore_plan_name: "flatpak_restore_plan.md"
+  reinstall_script_name: "reinstall_flatpaks.review.sh"
+  generated_script_mode: "0600"
+  reinstall_execution_guard_env: "CONFIRM_FLATPAK_REINSTALL"
+  reinstall_execution_guard_value: "I_UNDERSTAND_THIS_REINSTALLS_FLATPAKS"
+  include_system_scope: true
+  include_user_scope: true
+  include_all_scope_summary: true
+  include_disabled_remotes: true
+  fail_if_flatpak_missing: true
+  fail_if_flatpak_version_unexpected: false
+  app_data_inventory_max_entries_per_app: 4000
+  app_data_hash_small_files: true
+  app_data_hash_max_bytes: 1048576
+  app_data_warn_if_missing: true
+  offline_export_plan_only: true
+  offline_artifact_required: false
+  reinstall_script_installs_apps: true
+  reinstall_script_installs_explicit_runtimes: false
+  reinstall_script_restores_overrides_as_comments: true
+  package_install_chunk_size: 40
+
+paths:
+  system_installation_root: "/var/lib/flatpak"
+  user_installation_root: "~/.local/share/flatpak"
+  user_app_data_root: "~/.var/app"
+  system_config_dirs: "/etc/flatpak;/var/lib/flatpak/repo/config;/var/lib/flatpak/repo/refs/remotes"
+  user_config_dirs: "~/.local/share/flatpak/repo/config;~/.local/share/flatpak/repo/refs/remotes"
+  offline_artifact_roots: "state/offline_flatpak;/mnt/wantless_recovery/offline_flatpak"
+  app_data_subdirs: "config;data;cache"
+
+capture:
+  remote_columns: "name;url;collection-id;priority;options;installation;title"
+  app_columns: "application;ref;origin;branch;arch;version;installation;size;options"
+  runtime_columns: "application;ref;origin;branch;arch;version;installation;size;options"
+  info_fields: "ref;origin;collection;runtime;sdk;branch;arch;version;license;installed-size;location"
+  permission_commands_enabled: true
+
+generated_restore:
+  default_install_scope: "preserve"
+  remote_add_mode: "if-not-exists"
+  app_install_mode: "noninteractive_assumeyes"
+  include_remote_add_commands: true
+  include_app_install_commands: true
+  include_runtime_install_commands: false
+  include_override_review_block: true
+  include_app_data_restore_note: true

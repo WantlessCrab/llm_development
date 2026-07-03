@@ -1,0 +1,77 @@
+version: 1
+
+tool:
+  name: docker
+  verified_docker_version: "29.4.2"
+  verified_compose_version: "v5.1.3"
+  layer: "14_container_runtime_compose_workload_selected_artifacts"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/14_docker"
+  generated_root: "state/generated/14_docker"
+  export_root: "state/exports/14_docker"
+
+commands:
+  docker: "/usr/bin/docker"
+  systemctl: "/usr/bin/systemctl"
+  journalctl: "/usr/bin/journalctl"
+  sha256sum: "/usr/bin/sha256sum"
+  python: "/usr/bin/python3"
+
+policy:
+  copy_config_snapshot_into_run: true
+  report_name: "docker_report.json"
+  restore_plan_name: "docker_compose_restore_plan.md"
+  generated_script_mode: "0600"
+  fail_if_docker_missing: true
+  fail_if_daemon_unavailable: false
+  redact_env_values: true
+  redact_secret_like_labels: true
+  env_name_capture_only: true
+  copy_compose_files: true
+  copy_compose_files_redacted: true
+  copy_env_files: false
+  env_file_names_only: true
+  max_compose_file_bytes: 2097152
+  max_env_file_bytes: 1048576
+  max_daemon_file_bytes: 1048576
+  copy_sensitive_daemon_files: false
+  selected_image_export_requires_execute: true
+  selected_image_export_guard_prefix: "DOCKER_IMAGE_EXPORT"
+  image_export_guard_env: "CONFIRM_DOCKER_IMAGE_EXPORT"
+  image_export_guard_value: "I_UNDERSTAND_THIS_EXPORTS_DOCKER_IMAGES"
+  volume_export_requires_execute: true
+  volume_export_guard_prefix: "DOCKER_VOLUME_EXPORT"
+  volume_export_guard_env: "CONFIRM_DOCKER_VOLUME_EXPORT"
+  volume_export_guard_value: "I_UNDERSTAND_THIS_EXPORTS_A_STOPPED_DOCKER_VOLUME"
+  database_secondary_volume_export_guard_prefix: "DOCKER_DB_VOLUME_SECONDARY_EXPORT"
+  volume_export_helper_image: "busybox:latest"
+  helper_image_must_exist_locally: true
+  no_auto_pull: true
+  block_database_volume_export_by_default: true
+  require_quiesced_volume_export: true
+  postgres_primary_logical_owner: "Row 16 PostgreSQL logical dump layer"
+  no_container_start_stop_remove_by_default: true
+
+docker:
+  root_dir_expected: "/var/lib/docker"
+  protected_database_volume_names: "llm_database_pgdata;postgres_data;pgdata;portainer_postgres_data"
+  protected_database_container_names: "llm-postgres;postgres;postgresql"
+  compose_label_keys: "com.docker.compose.project;com.docker.compose.project.working_dir;com.docker.compose.project.config_files;com.docker.compose.service;com.docker.compose.version"
+  gpu_device_paths: "/dev/kfd;/dev/dri"
+  gpu_env_name_patterns: "ROCR_VISIBLE_DEVICES;HIP_VISIBLE_DEVICES;CUDA_VISIBLE_DEVICES;NVIDIA_VISIBLE_DEVICES;HSA_OVERRIDE_GFX_VERSION"
+  model_runtime_keywords: "rocm;vllm;llama;llamacpp;qwen;model;gpu"
+
+paths:
+  daemon_config_files: "/etc/docker/daemon.json;/etc/default/docker;/etc/docker/key.json"
+  sensitive_daemon_config_files: "/etc/docker/key.json"
+  docker_systemd_units: "docker.service;docker.socket;containerd.service"
+  docker_cli_config: "~/.docker/config.json"
+  compose_search_roots: "/home/wantless/PycharmProjects/automation;/home/wantless/PycharmProjects/browser;/home/wantless/PycharmProjects/tts_app"
+  compose_exclude_dir_parts: "/home/wantless/PycharmProjects/automation/recovery/state;/home/wantless/PycharmProjects/automation/recovery/.venv;/.git/;/.venv/;/node_modules/;__pycache__"
+  compose_file_names: "compose.yaml;compose.yml;docker-compose.yaml;docker-compose.yml;compose*.yaml;compose*.yml;docker-compose*.yaml;docker-compose*.yml"
+  compose_env_names: ".env;.env.local;.env.production;.env.development"
+  compose_extra_env_globs: "*.env;*.env.*"
+  model_runtime_roots: "/home/wantless/PycharmProjects/automation/model_runtimes;/home/wantless/PycharmProjects/automation/data_stack;/home/wantless/PycharmProjects/automation/local_llm;/home/wantless/PycharmProjects/automation/local_llm_router"
+  legacy_stack_roots: "/home/wantless/PycharmProjects/tts_app;/home/wantless/PycharmProjects/browser"

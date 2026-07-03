@@ -1,0 +1,84 @@
+version: 1
+
+tool:
+  name: cryptsetup
+  verified_cryptsetup_version: "2.7.0"
+  verified_gnome_disks_version: "46.0"
+  layer: "03_encrypted_backup_vault"
+
+project:
+  output_root: "state/dry_runs/03_cryptsetup"
+  local_test_root: "state/local_test/03_cryptsetup"
+
+commands:
+  cryptsetup: "/usr/sbin/cryptsetup"
+  lsblk: "/usr/bin/lsblk"
+  blkid: "/usr/sbin/blkid"
+  findmnt: "/usr/bin/findmnt"
+  mount: "/usr/bin/mount"
+  umount: "/usr/bin/umount"
+  losetup: "/usr/sbin/losetup"
+  truncate: "/usr/bin/truncate"
+  mkfs_ext4: "/usr/sbin/mkfs.ext4"
+  sha256sum: "/usr/bin/sha256sum"
+  tar: "/usr/bin/tar"
+
+safety:
+  confirmation_prefix: "FORMAT_LUKS2"
+  secret_directory_mode: "0700"
+  secret_file_mode: "0600"
+
+vault:
+  mapper_name: "wantless_recovery_vault"
+  mountpoint: "/mnt/wantless_recovery"
+  luks_label: "wantless-recovery-luks"
+  filesystem_label: "wantless-recover"
+  filesystem_type: "ext4"
+  allow_whole_disk_luks: true
+  require_target_unmounted: true
+  require_no_children_mounted: true
+  require_luks2: true
+  cryptsetup_format_args: "--type luks2 --pbkdf argon2id --cipher aes-xts-plain64 --key-size 512 --hash sha512"
+  filesystem_mkfs_args: "-F -m 0"
+
+backup_hdd:
+  expected_model_regex: "IronWolf|ST24000|Seagate"
+  min_capacity_bytes: 23000000000000
+  allowed_transports: "usb;sata;scsi;sat"
+  require_non_root: true
+  require_not_rescuezilla_usb: true
+  require_not_restore_target: true
+
+rescuezilla_usb_guard:
+  max_size_bytes: 256000000000
+  suspicious_fstype_regex: "iso9660|udf"
+  suspicious_label_regex: "rescuezilla|clonezilla|ubuntu|ventoy|live"
+
+restore_target_guard:
+  protected_paths: ""
+  protected_model_regex: ""
+
+header_backup:
+  directory: "state/secrets/cryptsetup/header_backups"
+  filename_template: "luks_header_{device_slug}_{uuid}_{timestamp}.img"
+  checksum_template: "{header_filename}.sha256"
+
+metadata:
+  directory: "state/dry_runs/03_cryptsetup/metadata"
+
+emergency_packet:
+  directory: "state/secrets/cryptsetup/emergency_packets"
+  filename_template: "cryptsetup_emergency_packet_{timestamp}.tar.gz"
+  include_header_backup: true
+  include_metadata: true
+  include_config_snapshot: true
+  include_readme: true
+
+local_test:
+  image_path: "state/local_test/03_cryptsetup/test_vault.img"
+  key_file: "state/local_test/03_cryptsetup/test_vault.key"
+  size_bytes: 268435456
+  mapper_name: "wantless_recovery_test_vault"
+  mountpoint: "state/local_test/03_cryptsetup/mount"
+  luks_label: "wantless-test-luks"
+  filesystem_label: "wantless-test-vault"

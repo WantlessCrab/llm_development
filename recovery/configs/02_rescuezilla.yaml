@@ -1,0 +1,41 @@
+version: 1
+
+tool:
+  name: rescuezilla
+  verified_rescuezilla_version: "2.6.2"
+  release_family: "Resolute"
+  layer: "02_whole_disk_bare_metal_restore"
+
+project:
+  output_root: "state/dry_runs/02_rescuezilla"
+
+iso:
+  path: "downloads/rescuezilla-2.6.2-64bit.resolute.iso"
+  expected_sha256: "20dfdad31d3da56b8dd3978159721f19071916f65e123003a850fdecec85ae3f"
+  expected_filename: "rescuezilla-2.6.2-64bit.resolute.iso"
+
+source:
+  disk: "/dev/nvme0n1"
+  efi_partition: "/dev/nvme0n1p1"
+  root_partition: "/dev/nvme0n1p2"
+  expected_boot_mode: "uefi"
+  minimum_restore_target_bytes: 1900000000000
+  minimum_restore_target_policy: "max(actual_source_disk_bytes, configured_floor)"
+  require_configured_root_matches_active: true
+  require_configured_efi_matches_active: true
+
+image_inventory:
+  search_roots: "state/dry_runs/02_rescuezilla/images;/mnt/wantless_recovery/01_rescuezilla_images"
+  manifest_name: "rescuezilla_image_manifest.json"
+  write_manifest_to_image_dir: false
+
+commands:
+  sha256sum: "/usr/bin/sha256sum"
+  lsblk: "/usr/bin/lsblk"
+  blkid: "/usr/sbin/blkid"
+  sfdisk: "/usr/sbin/sfdisk"
+  findmnt: "/usr/bin/findmnt"
+  efibootmgr: "/usr/bin/efibootmgr"
+  mokutil: "/usr/bin/mokutil"
+  du: "/usr/bin/du"
+  file: "/usr/bin/file"

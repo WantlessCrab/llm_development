@@ -1,0 +1,36 @@
+# docker-compose.postgres.yml
+
+services:
+  llm-postgres:
+    build:
+      context: .
+      dockerfile: dockerfile.postgres
+
+    image: localproject/llm-postgres:pg18-pgvector082
+    container_name: llm-postgres
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-8032}:5432"
+
+    volumes:
+      # Permanent PostgreSQL database state.
+      - llm_database_pgdata:/var/lib/postgresql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-llm_database}
+      POSTGRES_USER: ${POSTGRES_USER:-llm_database}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in data_stack/.env}
+      TZ: ${TZ:-America/Denver}
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -h localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  llm_database_pgdata:
+    name: llm_database_pgdata

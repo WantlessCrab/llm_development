@@ -1,0 +1,87 @@
+version: 1
+
+tool:
+  name: borg
+  verified_borg_version: "1.4.4"
+  borg_path: "/usr/local/bin/borg-1.4.4"
+  layer: "06_versioned_filesystem_payload_post_image_delta"
+
+project:
+  output_root: "state/dry_runs/06_borg"
+  local_test_root: "state/local_test/06_borg"
+  secret_root: "state/secrets/06_borg"
+
+policy:
+  expected_major: 1
+  expected_minor: 4
+  expected_patch: 4
+  hard_block_major_above: 1
+  require_execute_for_init: true
+  require_execute_for_restore: true
+  require_execute_for_mount: true
+  production_init_confirmation_prefix: "BORG_INIT"
+  production_key_export_confirmation_prefix: "BORG_KEY_EXPORT"
+  restore_confirmation_prefix: "BORG_RESTORE"
+  mount_confirmation_prefix: "BORG_MOUNT"
+  copy_config_snapshot_into_run: true
+  report_name: "borg_report.json"
+  archive_inventory_name: "archive_inventory.json"
+  key_export_mode: "0600"
+  secret_dir_mode: "0700"
+  local_test_archive_name: "local-test-proof"
+  local_test_passphrase: "LOCAL_TEST_ONLY_NOT_A_REAL_SECRET"
+  borg_unknown_unencrypted_repo_access_is_ok: "no"
+  borg_relocated_repo_access_is_ok: "no"
+
+repository_profiles:
+  local-test:
+    description: "Local scratch Borg proof repository. Safe to recreate. Not a recovery vault."
+    repository: "state/local_test/06_borg/repository"
+    payload_root: "state/local_test/06_borg/payload"
+    restore_root: "state/local_test/06_borg/restore"
+    key_export_dir: "state/local_test/06_borg/key_exports"
+    encryption: "repokey-blake2"
+    compression: "lz4"
+    passphrase_source: "local_test_config"
+    allow_init: true
+    allow_create_test_archive: true
+    allow_restore_execute: true
+    allow_mount_execute: true
+    require_init_token: false
+    require_key_export_token: false
+    repository_must_be_under_project: true
+    restore_must_be_under_project: true
+
+  vault-primary:
+    description: "Future primary encrypted vault Borg repository on opened LUKS target."
+    repository: "/mnt/wantless_recovery/06_borg/repository"
+    payload_root: "/"
+    restore_root: "state/restore_previews/06_borg"
+    key_export_dir: "state/secrets/06_borg/key_exports/vault-primary"
+    encryption: "repokey-blake2"
+    compression: "lz4"
+    passphrase_source: "environment"
+    passphrase_env: "BORG_PASSPHRASE"
+    allow_init: true
+    allow_create_test_archive: false
+    allow_restore_execute: true
+    allow_mount_execute: true
+    require_init_token: true
+    require_key_export_token: true
+    repository_must_be_under_project: false
+    require_mountpoint: true
+    mountpoint: "/mnt/wantless_recovery"
+    restore_must_be_under_project: false
+
+payload_sets:
+  local_test:
+    roots: "state/local_test/06_borg/payload"
+    include_note: "Generated deterministic scratch files only."
+
+  future_full_filesystem_payload:
+    roots: "/home/wantless;/etc;/opt;/usr/local"
+    include_note: "Borg filesystem payload authority. Row 07 borgmatic owns final source/exclude policy execution."
+
+exclude_policy:
+  note: "Final production include/exclude policy is owned by Row 07 borgmatic. Row 06 only proves Borg mechanics."
+  default_excludes: "**/.cache/**;**/__pycache__/**;**/.git/**;**/.venv/**;**/venv/**;**/*.pyc;**/.DS_Store"

@@ -1,51 +1,238 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8"/>
+    <title>local_llm_router</title>
     <style>
 		:root {
-			--bg: #171018;
-			--panel: #241828;
-			--text: #f7eef8;
-			--muted: #c9adca;
-			--border: #5a3c5e;
-			--accent: #d894bd;
-			--danger: #e68a9c;
-			--ok: #b6d7a8;
+			color-scheme: dark;
+			--bg: #120914;
+			--panel: #1b101d;
+			--panel2: #24132a;
+			--field: #100a12;
+			--text: #fff5fb;
+			--muted: #dec2df;
+			--dim: #b691b7;
+			--border: #3a2440;
+			--border2: #714b78;
+			--accent: #ffd7ee;
+			--pink: #ff4fb8;
+			--pink2: #ff74c7;
+			--pinkSoft: rgba(255, 79, 184, .18);
+			--pinkCard: #261124;
+			--orange: #ff9d42;
+			--orange2: #ffb46e;
+			--orangeSoft: rgba(255, 157, 66, .18);
+			--orangeCard: #27160d;
+			--blue: #9fc9ff;
+			--blueSoft: rgba(159, 201, 255, .14);
+			--green: #b6d7a8;
+			--danger: #ff7f9f;
+		}
+
+		* {
+			box-sizing: border-box;
 		}
 
 		body {
-			font-family: system-ui, sans-serif;
-			min-width: 360px;
 			margin: 0;
-			padding: 12px;
-			background: var(--bg);
+			width: 480px;
+			max-width: 480px;
+			background: radial-gradient(circle at top left, rgba(255, 79, 184, .15), transparent 38%), var(--bg);
 			color: var(--text);
+			font: 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 		}
 
-		h3 {
-			margin: 0 0 10px;
-			color: #f0c9dd;
-			letter-spacing: -0.02em;
+		header {
+			position: sticky;
+			top: 0;
+			z-index: 2;
+			padding: 10px 11px 9px;
+			border-bottom: 1px solid rgba(255, 79, 184, .28);
+			background: linear-gradient(180deg, #1b0f1d 0%, #150c16 100%);
+			display: grid;
+			gap: 7px;
+			box-shadow: 0 10px 24px rgba(0, 0, 0, .25);
 		}
 
-		button, select, input {
-			width: 100%;
-			margin: 5px 0;
-			padding: 9px;
+		.topline {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 8px;
+		}
+
+		h1 {
+			margin: 0;
+			font-size: 14px;
+			color: var(--accent);
+			letter-spacing: .01em;
+		}
+
+		.top-actions {
+			display: flex;
+			gap: 5px;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+		}
+
+		main {
+			padding: 10px 11px 12px;
+			display: grid;
+			gap: 9px;
+		}
+
+		.section {
 			border: 1px solid var(--border);
 			background: var(--panel);
+			border-radius: 15px;
+			overflow: hidden;
+			box-shadow: inset 3px 0 0 rgba(255, 79, 184, .35), 0 8px 22px rgba(0, 0, 0, .18);
+		}
+
+		.section.state-selected, .section.state-default, .section.state-custom, .section.state-ready, .section.state-off {
+			border-color: rgba(255, 79, 184, .78);
+			background: linear-gradient(90deg, rgba(255, 79, 184, .09), rgba(27, 16, 29, .98));
+			box-shadow: inset 3px 0 0 var(--pink), 0 8px 22px rgba(0, 0, 0, .18);
+		}
+
+		.section.state-missing, .section.state-warn {
+			border-color: rgba(255, 157, 66, .84);
+			background: linear-gradient(90deg, rgba(255, 157, 66, .10), rgba(27, 16, 29, .98));
+			box-shadow: inset 3px 0 0 var(--orange), 0 8px 22px rgba(0, 0, 0, .18);
+		}
+
+		.section.state-loading {
+			border-color: rgba(159, 201, 255, .62);
+			box-shadow: inset 3px 0 0 var(--blue), 0 8px 22px rgba(0, 0, 0, .18);
+		}
+
+		.section-toggle {
+			width: 100%;
+			border: 0;
+			border-bottom: 1px solid rgba(255, 255, 255, .07);
+			border-radius: 0;
+			background: linear-gradient(90deg, #24132a, #1c111e);
+			color: var(--accent);
+			padding: 8px 10px;
+			text-align: left;
+			font-weight: 800;
+			cursor: pointer;
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) minmax(56px, auto) minmax(142px, 220px);
+			gap: 7px;
+			align-items: center;
+		}
+
+		.section-toggle::before {
+			content: "▾";
+			color: var(--pink2);
+			font-weight: 900;
+		}
+
+		.collapsed .section-toggle::before {
+			content: "▸";
+		}
+
+		.section-toggle > span:first-of-type {
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			padding-right: 10px;
+		}
+
+		.section-toggle > .pill {
+			justify-self: end;
+			min-width: 48px;
+			text-align: center;
+			margin-left: 10px;
+		}
+
+		.section-toggle .hint {
+			color: var(--pink2);
+			font-size: 10px;
+			font-weight: 850;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			text-align: right;
+			letter-spacing: .01em;
+			text-shadow: 0 0 10px rgba(255, 79, 184, .18);
+		}
+
+		.section.state-missing .section-toggle .hint, .section.state-warn .section-toggle .hint {
+			color: var(--orange2);
+			text-shadow: 0 0 10px rgba(255, 157, 66, .18);
+		}
+
+		.section.state-loading .section-toggle .hint {
+			color: var(--blue);
+			text-shadow: 0 0 10px rgba(159, 201, 255, .18);
+		}
+
+		.section-body {
+			padding: 9px;
+			display: grid;
+			gap: 8px;
+		}
+
+		.collapsed .section-body {
+			display: none;
+		}
+
+		label {
+			display: block;
+			color: var(--muted);
+			font-size: 10px;
+			margin: 2px 0 3px;
+			font-weight: 650;
+		}
+
+		select, input {
+			width: 100%;
+			min-width: 0;
+			background: var(--field);
 			color: var(--text);
-			border-radius: 12px;
+			border: 1px solid var(--border2);
+			border-radius: 10px;
+			padding: 7px 8px;
+			min-height: 32px;
+		}
+
+		select:focus, input:focus {
+			outline: 2px solid rgba(255, 79, 184, .38);
+			border-color: var(--pink2);
+		}
+
+		input::placeholder {
+			color: rgba(255, 245, 251, .44);
+		}
+
+		input.input-current::placeholder {
+			color: rgba(255, 215, 238, .58);
+			font-style: italic;
+		}
+
+		input.input-current:not(:focus):placeholder-shown {
+			border-color: rgba(255, 79, 184, .48);
+			background: rgba(255, 79, 184, .055);
 		}
 
 		button {
+			padding: 7px 9px;
+			border-radius: 999px;
+			border: 1px solid var(--border2);
+			background: #241828;
+			color: var(--text);
 			cursor: pointer;
+			min-height: 31px;
+			white-space: nowrap;
 		}
 
 		button:hover {
-			border-color: var(--accent);
-			background: #2d2031;
+			border-color: var(--pink2);
+			box-shadow: 0 0 0 1px rgba(255, 79, 184, .16);
 		}
 
 		button:disabled {
@@ -53,106 +240,385 @@
 			cursor: not-allowed;
 		}
 
-		button.danger {
-			border-color: rgba(230, 138, 156, .75);
+		.primary {
+			border-color: var(--pink2);
+			background: linear-gradient(90deg, #321329, #231526);
+			width: 100%;
+			font-weight: 850;
+			color: #ffe4f4;
 		}
 
-		button.ok {
-			border-color: rgba(182, 215, 168, .75);
+		.danger {
+			border-color: var(--danger);
 		}
 
-		pre {
-			white-space: pre-wrap;
-			font-size: 11px;
-			background: #0f0a10;
+		.quiet {
 			color: var(--muted);
-			padding: 9px;
+			background: #171018;
+		}
+
+		.small {
+			padding: 5px 8px;
+			min-height: 26px;
+			font-size: 11px;
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 6px;
+		}
+
+		.triple {
+			display: grid;
+			grid-template-columns: 1fr 1fr 1fr;
+			gap: 6px;
+		}
+
+		.inline {
+			display: flex;
+			gap: 6px;
+			align-items: center;
+		}
+
+		.inline > input, .inline > select {
+			flex: 1;
+			min-width: 0;
+		}
+
+		.inline > button {
+			flex: 0 0 auto;
+		}
+
+		.row {
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			padding: 8px;
+			background: var(--field);
+			display: grid;
+			gap: 6px;
+			box-shadow: inset 3px 0 0 rgba(255, 79, 184, .12);
+		}
+
+		.row.selected, .row.state-selected, .row.state-ready, .row.live-current {
+			border-color: rgba(255, 79, 184, .8);
+			background: var(--pinkCard);
+			box-shadow: inset 3px 0 0 var(--pink);
+		}
+
+		.row.state-missing {
+			border-color: var(--orange);
+			background: var(--orangeCard);
+			box-shadow: inset 3px 0 0 var(--orange);
+		}
+
+		.row-title {
+			font-weight: 800;
+			color: var(--text);
+			line-height: 1.25;
+			overflow-wrap: anywhere;
+		}
+
+		.row-actions {
+			display: grid;
+			grid-template-columns: 1fr 1fr 1fr;
+			gap: 5px;
+		}
+
+		.row-actions.two {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.row-actions button {
+			font-size: 11px;
+			padding: 6px 7px;
+		}
+
+		.meta {
+			color: var(--dim);
+			font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+			font-size: 10px;
+			line-height: 1.35;
+			overflow-wrap: anywhere;
+		}
+
+		.summary {
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			padding: 7px;
+			background: var(--field);
+			color: var(--muted);
+		}
+
+		.summary.state-selected, .summary.state-default, .summary.state-custom, .summary.state-ready, .summary.state-off {
+			border-color: rgba(255, 79, 184, .75);
+			background: var(--pinkSoft);
+			color: #ffe1f3;
+		}
+
+		.summary.state-missing, .summary.state-warn {
+			border-color: var(--orange);
+			background: var(--orangeSoft);
+			color: #ffe6c9;
+		}
+
+		.badge, .pill {
+			display: inline-block;
+			border: 1px solid var(--border2);
+			border-radius: 999px;
+			padding: 2px 6px;
+			margin: 0 4px 4px 0;
+			color: var(--muted);
+			font-size: 10px;
+			font-weight: 750;
+		}
+
+		.pill {
+			margin: 0;
+			font-size: 9.5px;
+			line-height: 1.2;
+		}
+
+		.pill.state-selected, .pill.state-default, .pill.state-custom, .pill.state-ready, .pill.state-off, .badge.good, .badge.pink {
+			border-color: var(--pink2);
+			color: #ffe1f3;
+			background: var(--pinkSoft);
+		}
+
+		.pill.state-missing, .pill.state-warn, .badge.hot, .badge.orange {
+			border-color: var(--orange);
+			color: #ffe6c9;
+			background: var(--orangeSoft);
+		}
+
+		.pill.state-loading, .badge.blue {
+			border-color: var(--blue);
+			color: #d8eaff;
+			background: var(--blueSoft);
+		}
+
+		.route-flow {
+			display: grid;
+			gap: 6px;
+		}
+
+		.route-flow-line {
+			display: grid;
+			grid-template-columns: 46px minmax(0, 1fr);
+			gap: 8px;
+			align-items: center;
+		}
+
+		.route-flow-label {
+			color: var(--dim);
+			font-size: 9.5px;
+			font-weight: 850;
+			letter-spacing: .04em;
+			text-transform: uppercase;
+		}
+
+		.route-flow-value {
+			color: var(--text);
+			font-size: 11px;
+			font-weight: 760;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.route-flow-extra {
+			color: var(--muted);
+			font-size: 10px;
+			line-height: 1.25;
+			padding-top: 1px;
+		}
+
+		.scroll-list {
+			display: grid;
+			gap: 7px;
+			max-height: 275px;
+			overflow: auto;
+			padding-right: 2px;
+		}
+
+		#output {
+			white-space: pre-wrap;
+			font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+			color: var(--muted);
+			background: var(--field);
+			border: 1px solid var(--border);
 			border-radius: 10px;
-			border: 1px solid #38253c;
+			padding: 8px;
 			max-height: 220px;
 			overflow: auto;
 		}
 
-		.hint, .small {
-			font-size: 11px;
-			color: var(--muted);
-			margin-bottom: 8px;
-		}
-
-		.session-state, .panel {
-			font-size: 11px;
-			color: var(--muted);
-			border: 1px solid #38253c;
-			background: #100b11;
-			border-radius: 10px;
-			padding: 8px;
-			margin-bottom: 8px;
-			font-family: ui-monospace, monospace;
-		}
-
-		.queue {
-			margin-top: 8px;
+		.checkbox-row {
 			display: grid;
-			gap: 7px;
-			max-height: 320px;
-			overflow: auto;
+			grid-template-columns: auto minmax(0, 1fr);
+			gap: 8px;
+			align-items: center;
 		}
 
-		.queue-item {
-			border: 1px solid #38253c;
-			background: #100b11;
-			border-radius: 12px;
-			padding: 8px;
-		}
-
-		.queue-title {
-			font-size: 12px;
-			font-weight: 700;
-			color: var(--text);
-			line-height: 1.25;
-		}
-
-		.queue-meta {
-			margin-top: 4px;
-			font-size: 10.5px;
+		.checkbox-label {
+			display: flex;
+			align-items: center;
+			gap: 5px;
 			color: var(--muted);
-			font-family: ui-monospace, monospace;
-			line-height: 1.25;
+			font-size: 12px;
+			margin: 0;
+		}
+
+		.checkbox-label input {
+			width: auto;
+			min-height: 0;
 		}
     </style>
 </head>
 <body>
-<h3>local_llm_router</h3>
-<div class="hint">Manual bridge controls for the active ChatGPT tab.</div>
+<header>
+    <div class="topline">
+        <h1>local_llm_router</h1>
+        <div class="top-actions">
+            <button id="refreshAll" class="small"
+                    title="Refresh daemon state, live sessions, providers, queue, and wrappers">Refresh all
+            </button>
+        </div>
+    </div>
+    <div class="top-actions">
+        <button id="expandAll" class="small quiet">Expand all</button>
+        <button id="collapseAll" class="small quiet">Collapse all</button>
+        <button id="refreshOverlay" class="small quiet">Refresh overlay</button>
+    </div>
+</header>
+<main>
+    <section class="section state-loading" data-section="identity">
+        <button class="section-toggle" type="button"><span>Current session / group</span><span id="identityPill"
+                                                                                               class="pill state-loading">Loading</span><span
+                id="currentSessionSummary" class="hint">detecting</span></button>
+        <div class="section-body">
+            <div id="currentSessionCard" class="summary state-loading">Detecting active ChatGPT session…</div>
+            <label for="sessionAlias">Manual session name</label>
+            <div class="inline"><input id="sessionAlias" class="input-current" placeholder="Name this ChatGPT session"/>
+                <button id="saveAlias">Save</button>
+            </div>
+            <div class="grid">
+                <button id="saveInferredAlias" class="quiet">Use inherited name</button>
+                <button id="useActiveAsTarget" class="quiet">Use current tab as target</button>
+            </div>
+            <label for="queueGroupSelect">Group</label>
+            <select id="queueGroupSelect">
+                <option value="default">Default queue</option>
+            </select>
+            <div class="grid">
+                <button id="assignGroup">Assign group</button>
+                <button id="renameGroup">Rename group</button>
+            </div>
+            <div class="inline"><input id="groupName" placeholder="Type a new group name or rename value"/>
+                <button id="createAssignGroup">Create + assign</button>
+            </div>
+        </div>
+    </section>
 
-<div id="sessionState" class="session-state">Session state unknown.</div>
+    <section class="section state-ready" data-section="route">
+        <button class="section-toggle" type="button"><span>Route message</span><span id="routePill"
+                                                                                     class="pill state-ready">Ready</span><span
+                id="routeSummary" class="hint">source → target</span></button>
+        <div class="section-body">
+            <div id="routeContext" class="summary state-ready">Choose a source and target.</div>
+            <label for="routeSource">Source</label>
+            <select id="routeSource">
+                <option value="latest_user">Last user message</option>
+                <option value="latest_assistant">Last assistant response</option>
+                <option value="selected_draft">Selected queued item</option>
+            </select>
+            <label for="routeTarget">Target</label>
+            <select id="routeTarget">
+                <option value="local_draft">Local draft inbox</option>
+            </select>
+            <div id="selectedDraftSummary" class="meta">No queued item selected.</div>
+            <div class="checkbox-row"><label class="checkbox-label" for="routeWrapperEnabled"><input
+                    id="routeWrapperEnabled" type="checkbox"/> Wrapper</label><select id="routeWrapperSelect">
+                <option value="">Loading wrappers…</option>
+            </select></div>
+            <button id="routeExecute" class="primary">Route</button>
+            <div class="meta">Direct execute · group-scoped · duplicate intent allowed · no auto-send</div>
+        </div>
+    </section>
 
-<button id="status">Check active tab</button>
-<button id="capture">Capture latest assistant</button>
-<button id="insertNext">Insert next queued draft</button>
-<button id="loadQueue">Load selectable queue</button>
-<button id="clearQueue" class="danger">Clear current queue</button>
-<button id="resetOverlay">Reset overlay on active tab</button>
-<button id="refreshActiveOverlay">Refresh active overlay</button>
-<button id="refreshAllOverlays">Refresh all overlays</button>
+    <section class="section state-loading" data-section="sessions">
+        <button class="section-toggle" type="button"><span>Live ChatGPT sessions</span><span id="sessionsPill"
+                                                                                             class="pill state-loading">Loading</span><span
+                id="sessionCount" class="hint">loading</span></button>
+        <div class="section-body">
+            <button id="refreshSessions">Refresh sessions</button>
+            <div id="liveSessions" class="scroll-list"></div>
+        </div>
+    </section>
 
-<div class="panel">
-    <div class="small">Queue group</div>
-    <select id="queueGroupSelect"></select>
-    <button id="assignQueueGroup">Assign current session to selected group</button>
-    <input id="newQueueGroupName" placeholder="New queue group name">
-    <button id="createQueueGroup">Create and assign group</button>
-    <button id="deleteQueueGroup" class="danger">Delete selected group</button>
-</div>
+    <section class="section state-ready" data-section="queue">
+        <button class="section-toggle" type="button"><span>Queue</span><span id="queuePill" class="pill state-ready">Ready</span><span
+                id="queueSummary" class="hint">drafts / provider responses</span></button>
+        <div class="section-body">
+            <div class="summary state-ready">
+                <div class="row-title">Add to group queue</div>
+                <div class="meta">Queue latest user/assistant for grouped-session handoff.</div>
+                <div class="grid" style="margin-top:6px;">
+                    <button id="queueUser">Queue user</button>
+                    <button id="queueAssistant">Queue assistant</button>
+                </div>
+            </div>
+            <label for="queueSourceMode">Source mode</label><select id="queueSourceMode">
+            <option value="all_insertable">All insertable</option>
+            <option value="chatgpt_captures">ChatGPT captures</option>
+            <option value="provider_responses">Provider responses</option>
+        </select>
+            <div class="grid">
+                <button id="loadQueue">Load queue</button>
+                <button id="insertNext">Insert next into active tab</button>
+            </div>
+            <div id="queueList" class="scroll-list"></div>
+        </div>
+    </section>
 
-<button id="disconnectSession" class="danger">Disconnect this session</button>
-<button id="reconnectSession" class="ok">Reconnect this session</button>
-<button id="inbox">Open draft inbox</button>
+    <section class="section state-ready" data-section="providers">
+        <button class="section-toggle" type="button"><span>Providers</span><span id="providerPill"
+                                                                                 class="pill state-ready">Ready</span><span
+                id="providerSummary" class="hint">local targets</span></button>
+        <div class="section-body"><label for="dispatchProvider">Dispatch provider</label><select id="dispatchProvider">
+            <option value="">Loading…</option>
+        </select>
+            <div class="grid">
+                <button id="probeProvider">Probe selected</button>
+                <button id="refreshProviders">Refresh providers</button>
+            </div>
+        </div>
+    </section>
 
-<div id="queue" class="queue"></div>
+    <section class="section state-loading" data-section="services">
+        <button class="section-toggle" type="button"><span>Local services</span><span id="servicesPill"
+                                                                                      class="pill state-loading">Loading</span><span
+                id="servicesSummary" class="hint">Supervisor status</span></button>
+        <div class="section-body">
+            <button id="localServicesStatus">Load service status</button>
+            <div id="localServices" class="scroll-list"></div>
+        </div>
+    </section>
 
-<pre id="out">Ready.</pre>
-
+    <section class="section state-ready" data-section="diagnostics">
+        <button class="section-toggle" type="button"><span>Diagnostics</span><span id="diagnosticsPill"
+                                                                                   class="pill state-ready">Ready</span><span
+                id="diagnosticsSummary" class="hint">output</span></button>
+        <div class="section-body">
+            <div class="grid">
+                <button id="status">Active tab status</button>
+                <button id="openInbox">Open inbox</button>
+                <button id="disconnect" class="danger">Disconnect tab</button>
+            </div>
+            <div id="output">Ready.</div>
+        </div>
+    </section>
+</main>
 <script src="popup.js"></script>
 </body>
 </html>

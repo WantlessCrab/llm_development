@@ -1,0 +1,25 @@
+# dockerfile.postgres
+
+# 1. BASE IMAGE — PostgreSQL + pgvector, CPU-only
+#
+# PostgreSQL 18 +
+# pgvector pinned image:
+#   - PostgreSQL server
+#   - PostgreSQL client tools
+#   - official PostgreSQL Docker entrypoint/init behavior
+#   - pgvector extension binaries
+FROM pgvector/pgvector:0.8.2-pg18-trixie
+
+# 2. RUNTIME METADATA
+LABEL org.opencontainers.image.title="llm-postgres"
+LABEL org.opencontainers.image.description="PostgreSQL 18 + pgvector database authority for local_llm, eval, and model runtime metadata"
+LABEL org.opencontainers.image.source="/home/wantless/PycharmProjects/automation/data_stack"
+
+# 3. WORKDIR
+# Working directory only - PostgreSQL data: /var/lib/postgresql/data through Docker vol
+WORKDIR /workspace/data_stack
+
+# 4. NETWORK DEFAULT
+EXPOSE 5432
+
+# ENTRYPOINT / CMD intentionally inherited from pgvector/postgres image

@@ -1,0 +1,66 @@
+version: 1
+
+tool:
+  name: systemd
+  verified_systemd_version: "255.4-1ubuntu8.15"
+  layer: "08_local_deterministic_activation"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/08_systemd"
+  local_test_root: "state/local_test/08_systemd"
+
+commands:
+  systemctl: "/usr/bin/systemctl"
+  systemd_analyze: "/usr/bin/systemd-analyze"
+  install: "/usr/bin/install"
+  rm: "/usr/bin/rm"
+
+policy:
+  system_unit_source_dir: "systemd/system"
+  user_unit_source_dir: "systemd/user"
+  system_unit_target_dir: "/etc/systemd/system"
+  user_unit_target_dir: "/home/wantless/.config/systemd/user"
+  system_env_dir: "/etc/wantless-recovery"
+  system_env_file: "/etc/wantless-recovery/recovery.env"
+  install_system_confirmation: "INSTALL_SYSTEMD_SYSTEM:/etc/systemd/system"
+  uninstall_system_confirmation: "UNINSTALL_SYSTEMD_SYSTEM:/etc/systemd/system"
+  install_user_confirmation: "INSTALL_SYSTEMD_USER:/home/wantless/.config/systemd/user"
+  uninstall_user_confirmation: "UNINSTALL_SYSTEMD_USER:/home/wantless/.config/systemd/user"
+  copy_config_snapshot_into_run: true
+  report_name: "systemd_report.json"
+  backup_timer_enable_default: false
+  backup_timer_unit: "wantless-recovery-backup.timer"
+  backup_service_unit: "wantless-recovery-backup.service"
+  preflight_service_unit: "wantless-recovery-preflight.service"
+  verify_service_unit: "wantless-recovery-verify.service"
+  desktop_capture_user_unit: "wantless-desktop-capture.service"
+
+mounts:
+  recovery_vault:
+    path: "/mnt/wantless_recovery"
+    required_for_backup: true
+    required_for_verify: false
+    expected_repo_path: "/mnt/wantless_recovery/06_borg/repository"
+
+manual_verify:
+  description: "Current implemented-row verification sequence. Later rows can extend this config without changing the unit contract."
+  require_mount: false
+  commands: "scripts/01_smartmontools.sh capture-source; scripts/02_rescuezilla.sh verify-iso; scripts/04_integrity.sh verify-restore-gate --local-only; scripts/06_borg.sh assert-version; scripts/07_borgmatic.sh validate --profile local-test"
+  local_test_commands: "scripts/01_smartmontools.sh capture-source; scripts/02_rescuezilla.sh verify-iso; scripts/04_integrity.sh verify-restore-gate --local-only; scripts/06_borg.sh assert-version; scripts/07_borgmatic.sh validate --profile local-test"
+
+manual_backup:
+  description: "Borgmatic backup activation boundary. Real backup requires opened Row 03 vault and Borg credentials."
+  require_mount: true
+  local_test_commands: "scripts/07_borgmatic.sh backup --profile local-test --execute"
+  dry_run_commands: "scripts/07_borgmatic.sh dry-run --profile vault-primary"
+  execute_commands: "scripts/07_borgmatic.sh backup --profile vault-primary --execute --confirm-token BORGMATIC_BACKUP:vault-primary"
+
+manual_desktop_capture:
+  description: "User-session activation for Row 13 desktop/session capture."
+  commands: "scripts/13_desktop.sh capture-session"
+  allow_missing_command: false
+
+units:
+  system: "wantless-recovery-preflight.service;wantless-recovery-backup.service;wantless-recovery-backup.timer;wantless-recovery-verify.service"
+  user: "wantless-desktop-capture.service"

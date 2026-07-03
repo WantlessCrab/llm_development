@@ -29,10 +29,21 @@ rsync -a --delete \
 cat > "$BIN_DIR/local-llm" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+
 APP_SHARE="$HOME/.local/share/local-llm/app"
+ENV_FILE="$HOME/.config/local-llm/local-llm.env"
+
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
 if [[ -x "$APP_SHARE/.venv/bin/python" ]]; then
   exec "$APP_SHARE/.venv/bin/python" -m local_llm.cli "$@"
 fi
+
 exec /usr/bin/python3 -m local_llm.cli "$@"
 EOF
 chmod +x "$BIN_DIR/local-llm"
@@ -51,6 +62,31 @@ else
   install -m 0644 "$PROJECT_ROOT/config.example.yaml" "$CONFIG_DIR/config.example.yaml.new"
   echo "Preserved config: $CONFIG_DIR/config.yaml"
   echo "Wrote latest example: $CONFIG_DIR/config.example.yaml.new"
+fi
+
+ENV_FILE="$CONFIG_DIR/local-llm.env"
+ENV_EXAMPLE_FILE="$CONFIG_DIR/local-llm.env.example"
+
+cat > "$ENV_EXAMPLE_FILE" <<'EOF'
+# local_llm host-side runtime secrets.
+#
+# The database URL in config.yaml intentionally remains passwordless.
+# local_llm reads the database password from storage.database_password_env,
+# which defaults to LOCAL_LLM_POSTGRES_PASSWORD.
+#
+# Match this value to POSTGRES_PASSWORD in:
+#   /home/wantless/PycharmProjects/automation/data_stack/.env
+LOCAL_LLM_POSTGRES_PASSWORD=CHANGE_ME_LOCAL_ONLY
+EOF
+chmod 0600 "$ENV_EXAMPLE_FILE"
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  install -m 0600 "$ENV_EXAMPLE_FILE" "$ENV_FILE"
+  echo "Created runtime env template: $ENV_FILE"
+  echo "Edit LOCAL_LLM_POSTGRES_PASSWORD in that file before PostgreSQL-backed runs."
+else
+  chmod 0600 "$ENV_FILE"
+  echo "Preserved runtime env: $ENV_FILE"
 fi
 
 install -m 0644 "$PROJECT_ROOT/systemd/local-llm.service.example" "$SYSTEMD_USER_DIR/local-llm.service"

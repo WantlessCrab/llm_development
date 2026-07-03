@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "08_systemd.schema.json",
+  "title": "Recovery systemd activation report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.systemd.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script",
+        "systemctl_path"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "systemd"
+        },
+        "script": {
+          "type": "string"
+        },
+        "systemctl_path": {
+          "type": "string"
+        },
+        "systemd_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "install-system",
+        "uninstall-system",
+        "install-user",
+        "uninstall-user",
+        "show-units",
+        "show-timers",
+        "assert-mount-condition",
+        "manual-backup",
+        "manual-verify",
+        "manual-desktop-capture"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "dry-run",
+        "execute",
+        "assert",
+        "summary",
+        null
+      ]
+    },
+    "manager": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "system",
+        "user",
+        null
+      ]
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "mounts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_result"
+      }
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

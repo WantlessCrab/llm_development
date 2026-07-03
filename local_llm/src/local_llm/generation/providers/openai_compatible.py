@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import time
-from typing import Any
-
 import httpx
 
 from local_llm.config import ModelProfile
@@ -46,15 +44,25 @@ class OpenAICompatibleProvider:
         except Exception as exc:
             return False, str(exc)
 
-    async def chat(self, messages: list[dict[str, str]], settings: dict[str, object]) -> ModelProviderResponse:
-        payload: dict[str, Any] = {"model": self.profile.model, "messages": messages}
+    def build_request_payload(
+            self,
+            messages: list[dict[str, str]],
+            settings: dict[str, object],
+    ) -> dict[str, object]:
+        payload: dict[str, object] = {"model": self.profile.model, "messages": messages}
         for key, value in settings.items():
             if value is not None:
                 payload[key] = value
+        return payload
+
+    async def chat(self, messages: list[dict[str, str]],
+                   settings: dict[str, object]) -> ModelProviderResponse:
+        payload = self.build_request_payload(messages, settings)
 
         start = time.monotonic()
         async with httpx.AsyncClient(timeout=180.0) as client:
-            response = await client.post(self._url("chat/completions"), headers=self._headers(), json=payload)
+            response = await client.post(self._url("chat/completions"), headers=self._headers(),
+                                         json=payload)
         latency_ms = int((time.monotonic() - start) * 1000)
 
         try:
@@ -63,7 +71,8 @@ class OpenAICompatibleProvider:
             body = {"raw_text": response.text}
 
         if response.status_code >= 400:
-            raise RuntimeError(f"provider error status={response.status_code}: {response.text[:500]}")
+            raise RuntimeError(
+                f"provider error status={response.status_code}: {response.text[:500]}")
 
         try:
             text = body["choices"][0]["message"]["content"] or ""

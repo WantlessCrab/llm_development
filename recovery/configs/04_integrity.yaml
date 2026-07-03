@@ -1,0 +1,159 @@
+version: 1
+
+tool:
+  name: integrity
+  verified_sha256sum_version: "coreutils 9.4"
+  verified_b3sum_version: "1.2.0"
+  layer: "04_artifact_integrity_restore_admissibility"
+
+project:
+  output_root: "state/dry_runs/04_integrity"
+  local_test_root: "state/local_test/04_integrity"
+  manifest_index: "state/integrity_manifests/index.json"
+
+commands:
+  sha256sum: "/usr/bin/sha256sum"
+  b3sum: "/usr/bin/b3sum"
+  stat: "/usr/bin/stat"
+
+policy:
+  canonical_algorithm: "sha256"
+  fast_algorithm: "b3sum"
+  sha256_manifest_name: "SHA256SUMS"
+  b3sum_manifest_name: "B3SUMS"
+  json_sidecar_suffix: ".json"
+  report_name: "integrity_report.json"
+  require_relative_manifest_paths: true
+  refuse_absolute_manifest_entries: true
+  refuse_parent_path_entries: true
+  refuse_newline_paths: true
+  stable_sort: true
+  fail_on_empty_write_set: true
+  overwrite_existing_manifest: false
+  copy_config_snapshot_into_run: true
+
+artifact_aliases:
+  configs: "recovery_source_controls"
+  luks_headers: "cryptsetup_headers"
+
+artifact_classes:
+  local_test:
+    description: "Generated scratch artifacts used to prove the integrity toolchain before hashing real recovery outputs."
+    paths: "state/local_test/04_integrity/artifacts"
+    include_globs: "**/*"
+    exclude_globs: ""
+    required: true
+    critical: false
+    allow_missing: false
+    sudo_read: false
+    generate_local_test_artifacts: true
+
+  recovery_source_controls:
+    description: "Recovery project source controls: configs, scripts, schemas, and current implementation contracts."
+    paths: "configs;scripts;manifests/schema"
+    include_globs: "**/*"
+    exclude_globs: "(^|/)(__pycache__|\\.git|\\.venv|venv|state|downloads)(/|$)|\\.pyc$|~$|\\.tmp$"
+    required: true
+    critical: true
+    allow_missing: false
+    sudo_read: false
+    exclude_mode: "regex"
+
+  rescuezilla_iso:
+    description: "Downloaded Rescuezilla ISO artifact."
+    paths: "downloads/rescuezilla-2.6.2-64bit.resolute.iso"
+    include_globs: "**/*"
+    exclude_globs: ""
+    required: true
+    critical: true
+    allow_missing: false
+    sudo_read: false
+
+  rescuezilla_images:
+    description: "Future Rescuezilla image artifacts."
+    paths: "state/dry_runs/02_rescuezilla/images;/mnt/wantless_recovery/01_rescuezilla_images"
+    include_globs: "**/*"
+    exclude_globs: "**/SHA256SUMS;**/B3SUMS;**/*.tmp;**/.DS_Store"
+    required: false
+    critical: true
+    allow_missing: true
+    sudo_read: false
+
+  cryptsetup_headers:
+    description: "LUKS header backup artifacts from Row 03."
+    paths: "state/secrets/cryptsetup/header_backups"
+    include_globs: "**/*"
+    exclude_globs: "**/SHA256SUMS;**/B3SUMS;**/*.tmp"
+    required: false
+    critical: true
+    allow_missing: true
+    sudo_read: true
+
+  cryptsetup_emergency_packets:
+    description: "Cryptsetup emergency packet artifacts from Row 03."
+    paths: "state/secrets/cryptsetup/emergency_packets"
+    include_globs: "**/*"
+    exclude_globs: "**/SHA256SUMS;**/B3SUMS;**/*.tmp"
+    required: false
+    critical: true
+    allow_missing: true
+    sudo_read: true
+
+  borg_artifacts:
+    description: "Future Borg exports, key material, and repository proof artifacts."
+    paths: "state/secrets/borg;state/dry_runs/06_borg;state/exports/borg"
+    include_globs: "**/*"
+    exclude_globs: "**/SHA256SUMS;**/B3SUMS;**/*.tmp"
+    required: false
+    critical: true
+    allow_missing: true
+    sudo_read: true
+
+  database_dumps:
+    description: "Future PostgreSQL logical dump artifacts."
+    paths: "state/dry_runs/16_postgresql;state/exports/16_postgresql/dumps"
+    include_globs: "**/*"
+    exclude_globs: "**/SHA256SUMS;**/B3SUMS;**/*.tmp"
+    required: false
+    critical: true
+    allow_missing: true
+    sudo_read: false
+
+  docker_exports:
+    description: "Future Docker and Portainer image/volume/export artifacts."
+    paths: "state/dry_runs/14_docker;state/dry_runs/15_portainer;state/exports/docker"
+    include_globs: "**/*"
+    exclude_globs: "**/SHA256SUMS;**/B3SUMS;**/*.tmp"
+    required: false
+    critical: true
+    allow_missing: true
+    sudo_read: false
+
+  vm_cold_copies:
+    description: "Future libvirt/QEMU stopped VM cold-copy artifacts."
+    paths: "state/dry_runs/17_libvirt;state/exports/libvirt"
+    include_globs: "**/*"
+    exclude_globs: "**/SHA256SUMS;**/B3SUMS;**/*.tmp"
+    required: false
+    critical: true
+    allow_missing: true
+    sudo_read: true
+
+  runbooks:
+    description: "Future canonical human restore workflow artifacts."
+    paths: "runbooks"
+    include_globs: "**/*.md;**/*.txt;**/*.yaml;**/*.yml;**/*.json"
+    exclude_globs: ""
+    required: false
+    critical: true
+    allow_missing: true
+    sudo_read: false
+
+restore_gate:
+  algorithms: "sha256;b3sum"
+  required_classes: "recovery_source_controls;rescuezilla_iso"
+  optional_critical_classes: "rescuezilla_images;cryptsetup_headers;cryptsetup_emergency_packets;borg_artifacts;database_dumps;docker_exports;vm_cold_copies;runbooks"
+  require_local_test_proof: true
+  require_sha256_for_portable_restore: true
+  require_b3sum_for_local_fast_audit: true
+  verify_optional_when_present: true

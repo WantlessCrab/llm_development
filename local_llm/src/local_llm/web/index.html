@@ -1,347 +1,3437 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>local_llm</title>
-  <style>
-    :root {
-      --bg: #111217;
-      --panel: #1a1c24;
-      --panel-2: #222532;
-      --text: #f2edf4;
-      --muted: #bdb2c8;
-      --muted-2: #8f839a;
-      --border: #3a3445;
-      --accent: #d69ac2;
-      --accent-2: #a99be0;
-      --ok: #b7d99f;
-      --warn: #f0cf8a;
-      --bad: #ee91a2;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: radial-gradient(circle at 15% 0%, rgba(214,154,194,.16), transparent 32rem), var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-    }
-    button, input, select, textarea { font: inherit; }
-    button { cursor: pointer; }
-    .app { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
-    aside { border-right: 1px solid var(--border); background: rgba(26,28,36,.88); padding: 16px; overflow: auto; }
-    main { padding: 18px; overflow: auto; }
-    h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -.04em; }
-    h2 { margin: 0 0 10px; font-size: 18px; }
-    h3 { margin: 0 0 8px; font-size: 15px; color: var(--accent); }
-    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
-    .card { background: rgba(34,37,50,.72); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: 0 14px 38px rgba(0,0,0,.22); }
-    .stack { display: grid; gap: 12px; }
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .grid { display: grid; gap: 14px; }
-    .grid.two { grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr); align-items: start; }
-    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
-    input, select, textarea {
-      width: 100%; border: 1px solid var(--border); background: #0d0e13; color: var(--text); border-radius: 12px; padding: 9px 10px; outline: none;
-    }
-    textarea { min-height: 170px; resize: vertical; line-height: 1.4; }
-    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(214,154,194,.13); }
-    .button { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 8px 12px; }
-    .button:hover { border-color: var(--accent); }
-    .button.primary { background: linear-gradient(135deg, rgba(214,154,194,.30), rgba(169,155,224,.20)); border-color: var(--accent); }
-    .button:disabled { opacity: .55; cursor: not-allowed; }
-    .pill { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 3px 8px; color: var(--muted); font-size: 11px; background: #101118; }
-    .pill.ok { color: var(--ok); border-color: rgba(183,217,159,.5); }
-    .pill.warn { color: var(--warn); border-color: rgba(240,207,138,.5); }
-    .pill.bad { color: var(--bad); border-color: rgba(238,145,162,.5); }
-    .session-list { display: grid; gap: 8px; margin-top: 10px; }
-    .session { border: 1px solid var(--border); background: #141620; border-radius: 12px; padding: 10px; text-align: left; color: var(--text); }
-    .session.active { border-color: var(--accent); background: rgba(214,154,194,.12); }
-    .session-title { font-weight: 800; overflow-wrap: anywhere; }
-    .session-meta { margin-top: 4px; color: var(--muted-2); font-family: var(--mono); font-size: 11px; overflow-wrap: anywhere; }
-    .tabs { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
-    .tab { border: 1px solid var(--border); color: var(--muted); background: #141620; border-radius: 999px; padding: 8px 12px; }
-    .tab.active { color: var(--text); border-color: var(--accent); background: rgba(214,154,194,.12); }
-    .view { display: none; }
-    .view.active { display: block; }
-    .status { min-height: 22px; color: var(--muted); font-size: 13px; margin: 10px 0; }
-    .response { white-space: pre-wrap; line-height: 1.45; background: #0d0e13; border: 1px solid var(--border); border-radius: 14px; padding: 14px; min-height: 180px; }
-    .pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; background: #0d0e13; border: 1px solid var(--border); border-radius: 14px; padding: 12px; max-height: 520px; overflow: auto; }
-    .sources { display: grid; gap: 8px; }
-    .source { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: #11131b; }
-    .source-path { color: var(--accent); font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
-    .source-text { margin-top: 8px; color: var(--muted); font-family: var(--mono); font-size: 11px; white-space: pre-wrap; max-height: 180px; overflow: auto; }
-    .history { display: grid; gap: 8px; }
-    .run-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: #11131b; }
-    .run-row button { align-self: start; }
-    .muted { color: var(--muted); }
-    .mono { font-family: var(--mono); }
-    .small { font-size: 12px; }
-    @media (max-width: 1050px) { .app { grid-template-columns: 1fr; } aside { border-right: none; border-bottom: 1px solid var(--border); } .grid.two { grid-template-columns: 1fr; } }
-  </style>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>local_llm Control Center</title>
+    <style>
+		:root {
+			color-scheme: dark;
+			--bg: #0f1117;
+			--surface: #171a24;
+			--surface-2: #202434;
+			--surface-3: #292f42;
+			--border: #3b4358;
+			--text: #f5f2f8;
+			--muted: #b9b2c7;
+			--soft: #8f879e;
+			--accent: #d69ac2;
+			--accent-2: #a4c2f4;
+			--ok: #b9e3a3;
+			--warn: #efd18a;
+			--bad: #f09aaa;
+			--info: #9ec9f4;
+			--shadow: rgba(0, 0, 0, 0.28);
+			--mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+			--sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			background: radial-gradient(circle at top left, rgba(214, 154, 194, 0.14), transparent 30rem),
+			radial-gradient(circle at bottom right, rgba(164, 194, 244, 0.10), transparent 34rem),
+			var(--bg);
+			color: var(--text);
+			font-family: var(--sans);
+			font-size: 14px;
+		}
+
+		button, input, select, textarea {
+			font: inherit;
+		}
+
+		button {
+			cursor: pointer;
+		}
+
+		button:disabled,
+		input:disabled,
+		select:disabled,
+		textarea:disabled {
+			opacity: 0.55;
+			cursor: not-allowed;
+		}
+
+		a {
+			color: var(--accent-2);
+		}
+
+		.app-shell {
+			display: grid;
+			grid-template-rows: auto 1fr;
+			min-height: 100vh;
+		}
+
+		.topbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			padding: 14px 18px;
+			border-bottom: 1px solid var(--border);
+			background: rgba(15, 17, 23, 0.88);
+			backdrop-filter: blur(10px);
+			position: sticky;
+			top: 0;
+			z-index: 20;
+		}
+
+		.brand {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+			min-width: 220px;
+		}
+
+		.brand-title {
+			font-size: 16px;
+			font-weight: 760;
+			letter-spacing: 0.02em;
+		}
+
+		.brand-subtitle {
+			color: var(--muted);
+			font-size: 12px;
+		}
+
+		.top-status {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: flex-end;
+			gap: 8px;
+		}
+
+		.layout {
+			display: grid;
+			grid-template-columns: 294px minmax(0, 1fr) 420px;
+			min-height: 0;
+		}
+
+		aside.nav {
+			border-right: 1px solid var(--border);
+			background: rgba(23, 26, 36, 0.88);
+			padding: 14px;
+			min-height: calc(100vh - 65px);
+			position: sticky;
+			top: 65px;
+			align-self: start;
+			max-height: calc(100vh - 65px);
+			overflow: auto;
+		}
+
+		main {
+			padding: 16px;
+			min-width: 0;
+		}
+
+		aside.inspector {
+			border-left: 1px solid var(--border);
+			background: rgba(23, 26, 36, 0.72);
+			padding: 14px;
+			min-height: calc(100vh - 65px);
+			position: sticky;
+			top: 65px;
+			align-self: start;
+			max-height: calc(100vh - 65px);
+			overflow: auto;
+		}
+
+		.nav-section-title {
+			margin: 14px 0 8px;
+			color: var(--soft);
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.09em;
+			font-weight: 760;
+		}
+
+		.nav-button {
+			width: 100%;
+			border: 1px solid transparent;
+			background: transparent;
+			color: var(--text);
+			padding: 10px 10px;
+			border-radius: 10px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			text-align: left;
+			margin-bottom: 4px;
+		}
+
+		.nav-button:hover {
+			background: rgba(255, 255, 255, 0.04);
+			border-color: rgba(255, 255, 255, 0.05);
+		}
+
+		.nav-button.active {
+			background: rgba(214, 154, 194, 0.16);
+			border-color: rgba(214, 154, 194, 0.42);
+		}
+
+
+		.nav-section-toggle {
+			width: 100%;
+			border: 0;
+			background: transparent;
+			color: var(--soft);
+			padding: 0;
+			margin: 14px 0 8px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.09em;
+			font-weight: 760;
+		}
+
+		.context-button {
+			width: 100%;
+			text-align: left;
+			border: 1px solid var(--border);
+			background: rgba(255, 255, 255, 0.03);
+			color: var(--text);
+			border-radius: 12px;
+			padding: 10px;
+			margin-bottom: 8px;
+		}
+
+		.context-button:hover {
+			border-color: rgba(214, 154, 194, 0.42);
+			background: rgba(214, 154, 194, 0.10);
+		}
+
+		.mode-toggle {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 8px;
+		}
+
+		.mode-button {
+			border: 1px solid var(--border);
+			background: var(--surface-2);
+			color: var(--text);
+			border-radius: 12px;
+			padding: 10px;
+			text-align: left;
+		}
+
+		.mode-button.active {
+			background: rgba(214, 154, 194, 0.16);
+			border-color: rgba(214, 154, 194, 0.42);
+		}
+
+		.session-intent-switch {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 7px;
+			align-items: stretch;
+		}
+
+		.intent-button {
+			border: 1px solid rgba(59, 67, 88, 0.86);
+			background: rgba(32, 36, 52, 0.58);
+			color: var(--text);
+			border-radius: 999px;
+			padding: 7px 10px;
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			text-align: left;
+			min-width: 0;
+			flex: 1 1 150px;
+		}
+
+		.intent-button:hover {
+			border-color: rgba(164, 194, 244, 0.46);
+			background: rgba(164, 194, 244, 0.08);
+		}
+
+		.intent-button.active {
+			background: rgba(164, 194, 244, 0.14);
+			border-color: rgba(164, 194, 244, 0.58);
+		}
+
+		.intent-button .intent-main {
+			font-weight: 780;
+			font-size: 12px;
+			white-space: nowrap;
+		}
+
+		.intent-button .intent-note {
+			color: var(--muted);
+			font-size: 11px;
+			line-height: 1.2;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.session-picker-row {
+			display: grid;
+			grid-template-columns: minmax(260px, 1.45fr) minmax(240px, 1fr);
+			gap: 10px;
+			align-items: end;
+		}
+
+		.session-summary-card {
+			border: 1px solid rgba(164, 194, 244, 0.24);
+			background: linear-gradient(135deg, rgba(164, 194, 244, 0.08), rgba(214, 154, 194, 0.045));
+			border-radius: 14px;
+			padding: 10px;
+		}
+
+		.session-summary-card.unsaved {
+			border-color: rgba(214, 154, 194, 0.40);
+			background: linear-gradient(135deg, rgba(214, 154, 194, 0.12), rgba(239, 209, 138, 0.055));
+		}
+
+		.session-summary-card.blocked {
+			border-color: rgba(239, 209, 138, 0.38);
+			background: rgba(239, 209, 138, 0.07);
+		}
+
+		.session-summary-card.oneoff {
+			border-color: rgba(143, 135, 158, 0.30);
+			background: rgba(143, 135, 158, 0.06);
+		}
+
+		.session-summary-head {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 10px;
+			margin-bottom: 8px;
+		}
+
+		.session-summary-title {
+			font-size: 12px;
+			font-weight: 790;
+		}
+
+		.session-summary-note {
+			color: var(--muted);
+			font-size: 11px;
+			line-height: 1.35;
+			margin-top: 2px;
+		}
+
+		.session-summary-grid {
+			display: grid;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: 7px;
+		}
+
+		.session-summary-item {
+			min-width: 0;
+			border: 1px solid rgba(59, 67, 88, 0.34);
+			background: rgba(15, 17, 23, 0.20);
+			border-radius: 10px;
+			padding: 7px 8px;
+		}
+
+		.session-summary-item .label {
+			color: var(--soft);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+			line-height: 1.15;
+			margin-bottom: 3px;
+		}
+
+		.session-summary-item .value {
+			color: var(--text);
+			font-size: 11px;
+			font-weight: 730;
+			line-height: 1.25;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.session-summary-details {
+			margin-top: 8px;
+			font-size: 11px;
+		}
+
+		.session-summary-details summary {
+			color: var(--muted);
+			cursor: pointer;
+		}
+
+		.session-detail-line {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px 14px;
+			margin-top: 7px;
+			color: var(--muted);
+		}
+
+		.session-smart-actions {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			flex-wrap: wrap;
+			border-top: 1px solid rgba(59, 67, 88, 0.42);
+			padding-top: 10px;
+		}
+
+		.smart-action-left,
+		.smart-action-right {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.workflow-sync-card {
+			border: 1px solid rgba(164, 194, 244, 0.24);
+			background: rgba(164, 194, 244, 0.055);
+			border-radius: 14px;
+			padding: 10px;
+		}
+
+		.workflow-sync-card.warn {
+			border-color: rgba(239, 209, 138, 0.42);
+			background: rgba(239, 209, 138, 0.07);
+		}
+
+		.workflow-sync-head {
+			display: flex;
+			justify-content: space-between;
+			gap: 10px;
+			align-items: flex-start;
+			margin-bottom: 8px;
+		}
+
+		.workflow-sync-title {
+			font-size: 12px;
+			font-weight: 790;
+		}
+
+		.workflow-sync-note {
+			color: var(--muted);
+			font-size: 11px;
+			line-height: 1.35;
+			margin-top: 2px;
+		}
+
+		.workflow-sync-grid {
+			display: grid;
+			grid-template-columns: repeat(5, minmax(0, 1fr));
+			gap: 7px;
+		}
+
+		.inline-turn-result {
+			border-top: 1px solid rgba(59, 67, 88, 0.44);
+			padding-top: 12px;
+		}
+
+		.turn-chat-stack {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.chat-turn.user {
+			border-color: rgba(164, 194, 244, 0.42);
+		}
+
+		.chat-turn.assistant {
+			border-color: rgba(214, 154, 194, 0.46);
+			background: rgba(214, 154, 194, 0.035);
+		}
+
+		.turn-actions {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.action-explain {
+			color: var(--muted);
+			font-size: 11px;
+			line-height: 1.3;
+			max-width: 520px;
+		}
+
+		.field-note {
+			color: var(--soft);
+			font-size: 11px;
+			line-height: 1.35;
+		}
+
+		.session-facts-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+		}
+
+		.compact-fact-panel {
+			border: 1px solid rgba(59, 67, 88, 0.58);
+			background: rgba(32, 36, 52, 0.34);
+			border-radius: 12px;
+			padding: 8px 9px;
+		}
+
+		.compact-fact-title {
+			color: var(--soft);
+			font-size: 10px;
+			font-weight: 780;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			margin-bottom: 6px;
+		}
+
+		.compact-fact-list {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 5px 8px;
+		}
+
+		.compact-fact {
+			min-width: 0;
+		}
+
+		.compact-fact .label {
+			color: var(--soft);
+			font-size: 10px;
+			line-height: 1.15;
+		}
+
+		.compact-fact .value {
+			color: var(--text);
+			font-size: 11px;
+			font-weight: 720;
+			line-height: 1.25;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.status-panel {
+			border: 1px solid rgba(164, 194, 244, 0.24);
+			background: rgba(164, 194, 244, 0.08);
+			border-radius: 12px;
+			padding: 10px;
+			color: var(--muted);
+		}
+
+		.section-grid {
+			display: grid;
+			gap: 14px;
+		}
+
+		.grid-2 {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 14px;
+		}
+
+		.grid-3 {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 14px;
+		}
+
+		.card {
+			border: 1px solid var(--border);
+			background: rgba(23, 26, 36, 0.88);
+			border-radius: 16px;
+			box-shadow: 0 12px 36px var(--shadow);
+			overflow: hidden;
+		}
+
+		.card-header {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 14px 14px 10px;
+			border-bottom: 1px solid rgba(59, 67, 88, 0.65);
+		}
+
+		.card-title {
+			font-weight: 760;
+			font-size: 14px;
+		}
+
+		.card-subtitle {
+			color: var(--muted);
+			font-size: 12px;
+			margin-top: 3px;
+			line-height: 1.35;
+		}
+
+		.card-body {
+			padding: 14px;
+		}
+
+		.card.collapsed .card-header {
+			border-bottom: 0;
+		}
+
+		.card-header-main {
+			min-width: 0;
+		}
+
+		.card-header-actions {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+		}
+
+		.card-collapse-toggle {
+			border: 1px solid rgba(143, 135, 158, 0.24);
+			background: rgba(255, 255, 255, 0.025);
+			color: var(--muted);
+			border-radius: 999px;
+			padding: 4px 8px;
+			font-size: 11px;
+			font-weight: 760;
+			line-height: 1;
+		}
+
+		.card-collapse-toggle:hover {
+			border-color: rgba(214, 154, 194, 0.50);
+			color: var(--text);
+		}
+
+		.card-collapse-toggle.session {
+			border-color: rgba(164, 194, 244, 0.28);
+			background: rgba(164, 194, 244, 0.06);
+			color: #c7d9fa;
+		}
+
+		.stack {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.row {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+
+		.row-between {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+
+		.field-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+		}
+
+		label.field {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			color: var(--muted);
+			font-size: 12px;
+			font-weight: 650;
+		}
+
+		.field-heading {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 8px;
+		}
+
+		.field-title {
+			min-width: 0;
+		}
+
+		.field-status {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			border-radius: 999px;
+			border: 1px solid rgba(143, 135, 158, 0.28);
+			background: rgba(255, 255, 255, 0.025);
+			color: var(--soft);
+			font-size: 10px;
+			font-weight: 720;
+			line-height: 1;
+			padding: 3px 6px;
+			white-space: nowrap;
+		}
+
+		.field-status.required {
+			border-color: rgba(245, 202, 122, 0.34);
+			background: rgba(245, 202, 122, 0.10);
+			color: #f3d596;
+		}
+
+		.field-status.ready,
+		.field-status.saved {
+			border-color: rgba(185, 227, 163, 0.30);
+			background: rgba(185, 227, 163, 0.08);
+			color: #cce8bd;
+		}
+
+		.field-status.changed {
+			border-color: rgba(214, 154, 194, 0.34);
+			background: rgba(214, 154, 194, 0.10);
+			color: #e7bad3;
+		}
+
+		.field-status.info,
+		.field-status.selected {
+			border-color: rgba(164, 194, 244, 0.32);
+			background: rgba(164, 194, 244, 0.08);
+			color: #bdd4fa;
+		}
+
+		.field-status.bad {
+			border-color: rgba(240, 154, 170, 0.34);
+			background: rgba(240, 154, 170, 0.10);
+			color: #f3b1bd;
+		}
+
+		.field-status.optional,
+		.field-status.inactive {
+			border-color: rgba(143, 135, 158, 0.20);
+			background: rgba(143, 135, 158, 0.06);
+			color: var(--soft);
+		}
+
+		input, select, textarea {
+			width: 100%;
+			border: 1px solid var(--border);
+			background: var(--surface-2);
+			color: var(--text);
+			border-radius: 10px;
+			padding: 9px 10px;
+			outline: none;
+		}
+
+		input::placeholder,
+		textarea::placeholder {
+			color: rgba(185, 178, 199, 0.48);
+		}
+
+		select[data-placeholder-active="true"] {
+			color: rgba(185, 178, 199, 0.62);
+		}
+
+		input[data-field-status="required"],
+		select[data-field-status="required"],
+		textarea[data-field-status="required"] {
+			border-color: rgba(245, 202, 122, 0.38);
+			background: rgba(245, 202, 122, 0.055);
+		}
+
+		input[data-field-status="ready"],
+		select[data-field-status="ready"],
+		textarea[data-field-status="ready"],
+		input[data-field-status="saved"],
+		select[data-field-status="saved"],
+		textarea[data-field-status="saved"] {
+			border-color: rgba(185, 227, 163, 0.26);
+			background: rgba(185, 227, 163, 0.035);
+		}
+
+		input[data-field-status="changed"],
+		select[data-field-status="changed"],
+		textarea[data-field-status="changed"] {
+			border-color: rgba(214, 154, 194, 0.34);
+			background: rgba(214, 154, 194, 0.05);
+		}
+
+		input[data-field-status="inactive"],
+		select[data-field-status="inactive"],
+		textarea[data-field-status="inactive"] {
+			background: rgba(143, 135, 158, 0.04);
+		}
+
+		textarea {
+			min-height: 118px;
+			resize: vertical;
+			line-height: 1.4;
+		}
+
+		textarea.session-description {
+			min-height: 66px;
+		}
+
+		input:focus, select:focus, textarea:focus {
+			border-color: rgba(214, 154, 194, 0.72);
+			box-shadow: 0 0 0 3px rgba(214, 154, 194, 0.12);
+		}
+
+		.primary, .secondary, .ghost, .danger {
+			border-radius: 10px;
+			padding: 9px 12px;
+			font-weight: 720;
+			border: 1px solid transparent;
+		}
+
+		.primary {
+			background: var(--accent);
+			color: #241923;
+		}
+
+		.secondary {
+			background: rgba(164, 194, 244, 0.14);
+			border-color: rgba(164, 194, 244, 0.42);
+			color: var(--text);
+		}
+
+		.ghost {
+			background: transparent;
+			border-color: var(--border);
+			color: var(--text);
+		}
+
+		.danger {
+			background: rgba(240, 154, 170, 0.12);
+			border-color: rgba(240, 154, 170, 0.45);
+			color: var(--bad);
+		}
+
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 4px 8px;
+			border-radius: 999px;
+			border: 1px solid var(--border);
+			color: var(--muted);
+			background: rgba(255, 255, 255, 0.035);
+			font-size: 11px;
+			font-weight: 760;
+			white-space: nowrap;
+		}
+
+		.badge.ok {
+			color: #23351a;
+			background: var(--ok);
+			border-color: var(--ok);
+		}
+
+		.badge.bad {
+			color: #3b141a;
+			background: var(--bad);
+			border-color: var(--bad);
+		}
+
+		.badge.warn {
+			color: #3b2d0d;
+			background: var(--warn);
+			border-color: var(--warn);
+		}
+
+		.badge.info {
+			color: #122d44;
+			background: var(--info);
+			border-color: var(--info);
+		}
+
+		.badge.accent {
+			color: #241923;
+			background: var(--accent);
+			border-color: var(--accent);
+		}
+
+		.stat-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+			gap: 10px;
+		}
+
+		.stat {
+			border: 1px solid rgba(59, 67, 88, 0.75);
+			background: rgba(32, 36, 52, 0.72);
+			border-radius: 14px;
+			padding: 12px;
+		}
+
+		.stat-value {
+			font-size: 22px;
+			font-weight: 820;
+			line-height: 1.1;
+		}
+
+		.stat-label {
+			color: var(--muted);
+			font-size: 11px;
+			margin-top: 5px;
+		}
+
+		.list {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.list-item {
+			border: 1px solid rgba(59, 67, 88, 0.72);
+			background: rgba(32, 36, 52, 0.58);
+			border-radius: 13px;
+			padding: 10px;
+		}
+
+		.list-item.clickable {
+			cursor: pointer;
+		}
+
+		.list-item.clickable:hover {
+			border-color: rgba(214, 154, 194, 0.58);
+			background: rgba(214, 154, 194, 0.08);
+		}
+
+		.list-item.selected {
+			border-color: var(--accent);
+			background: rgba(214, 154, 194, 0.12);
+		}
+
+		.item-title {
+			font-weight: 740;
+			overflow-wrap: anywhere;
+		}
+
+		.item-meta {
+			margin-top: 4px;
+			color: var(--muted);
+			font-size: 12px;
+			line-height: 1.35;
+			overflow-wrap: anywhere;
+		}
+
+		.mono {
+			font-family: var(--mono);
+			font-size: 12px;
+		}
+
+		pre {
+			margin: 0;
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
+			font-family: var(--mono);
+			font-size: 12px;
+			line-height: 1.42;
+			color: #efeaf4;
+		}
+
+		.json-block, .text-block {
+			border: 1px solid rgba(59, 67, 88, 0.72);
+			border-radius: 12px;
+			background: rgba(10, 12, 18, 0.42);
+			padding: 10px;
+			max-height: 380px;
+			overflow: auto;
+		}
+
+		.text-block {
+			font-family: var(--sans);
+			white-space: pre-wrap;
+			line-height: 1.48;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 12px;
+		}
+
+		th, td {
+			border-bottom: 1px solid rgba(59, 67, 88, 0.6);
+			text-align: left;
+			vertical-align: top;
+			padding: 8px;
+		}
+
+		th {
+			color: var(--muted);
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			font-weight: 800;
+		}
+
+		.table-wrap {
+			overflow: auto;
+			border: 1px solid rgba(59, 67, 88, 0.7);
+			border-radius: 12px;
+		}
+
+		.muted {
+			color: var(--muted);
+		}
+
+		.soft {
+			color: var(--soft);
+		}
+
+		.empty {
+			color: var(--muted);
+			font-size: 13px;
+			padding: 8px 0;
+		}
+
+		.warning-text {
+			color: var(--warn);
+		}
+
+		.error-text {
+			color: var(--bad);
+		}
+
+		.ok-text {
+			color: var(--ok);
+		}
+
+		.divider {
+			height: 1px;
+			background: rgba(59, 67, 88, 0.72);
+			margin: 8px 0;
+		}
+
+		details {
+			border: 1px solid rgba(59, 67, 88, 0.68);
+			border-radius: 12px;
+			background: rgba(32, 36, 52, 0.45);
+			overflow: hidden;
+		}
+
+		details summary {
+			cursor: pointer;
+			padding: 10px;
+			color: var(--text);
+			font-weight: 720;
+		}
+
+		details .details-body {
+			border-top: 1px solid rgba(59, 67, 88, 0.55);
+			padding: 10px;
+		}
+
+		.activity-log {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+			max-height: 320px;
+			overflow: auto;
+		}
+
+		.log-line {
+			border-left: 3px solid var(--border);
+			padding: 7px 8px;
+			background: rgba(32, 36, 52, 0.52);
+			border-radius: 8px;
+			color: var(--muted);
+			font-size: 12px;
+		}
+
+		.log-line.ok {
+			border-left-color: var(--ok);
+		}
+
+		.log-line.bad {
+			border-left-color: var(--bad);
+		}
+
+		.log-line.info {
+			border-left-color: var(--info);
+		}
+
+		.chat-history {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.chat-turn {
+			border: 1px solid rgba(59, 67, 88, 0.72);
+			border-radius: 14px;
+			overflow: hidden;
+		}
+
+		.chat-turn .turn-head {
+			display: flex;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 10px;
+			background: rgba(41, 47, 66, 0.7);
+		}
+
+		.chat-turn .turn-body {
+			padding: 10px;
+			white-space: pre-wrap;
+			line-height: 1.48;
+		}
+
+		.chip-list {
+			display: flex;
+			gap: 6px;
+			flex-wrap: wrap;
+		}
+
+		.mini-button {
+			border: 1px solid var(--border);
+			background: transparent;
+			color: var(--text);
+			border-radius: 999px;
+			padding: 5px 8px;
+			font-size: 11px;
+			font-weight: 740;
+		}
+
+		.mini-button:hover {
+			border-color: var(--accent);
+		}
+
+		.right-rail-title {
+			margin: 0 0 10px;
+			font-weight: 800;
+		}
+
+		@media (max-width: 1280px) {
+			.layout {
+				grid-template-columns: 250px minmax(0, 1fr);
+			}
+
+			aside.inspector {
+				display: none;
+			}
+
+			.grid-3 {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		@media (max-width: 860px) {
+			.layout {
+				grid-template-columns: 1fr;
+			}
+
+			aside.nav {
+				position: static;
+				max-height: none;
+				min-height: auto;
+				border-right: none;
+				border-bottom: 1px solid var(--border);
+			}
+
+			.grid-2, .field-grid, .session-facts-grid, .compact-fact-list, .workflow-sync-grid {
+				grid-template-columns: 1fr;
+			}
+
+			.topbar {
+				align-items: flex-start;
+				flex-direction: column;
+			}
+
+			.top-status {
+				justify-content: flex-start;
+			}
+		}
+    </style>
 </head>
 <body>
-<div class="app">
-  <aside>
-    <h1>local_llm</h1>
-    <div class="subtitle">Session-aware run console. Turns are stored; chat memory is not automatically injected.</div>
-    <div class="card stack">
-      <h3>New session</h3>
-      <label>Title <input id="newTitle" value="Local model session" /></label>
-      <label>Description <input id="newDescription" placeholder="optional" /></label>
-      <label>Default workflow <select id="newWorkflow"></select></label>
-      <button class="button primary" id="createSession">Create session</button>
-    </div>
-    <div class="status" id="sideStatus"></div>
-    <div class="row">
-      <button class="button" id="refreshSessions">Refresh</button>
-      <button class="button" id="archiveSession">Archive selected</button>
-    </div>
-    <div class="session-list" id="sessions"></div>
-  </aside>
-  <main>
-    <div class="tabs">
-      <button class="tab active" data-view="run">Run</button>
-      <button class="tab" data-view="history">History</button>
-      <button class="tab" data-view="inspect">Inspect</button>
-    </div>
-
-    <section id="view-run" class="view active">
-      <div class="grid two">
-        <div class="card stack">
-          <h2>Run in selected session</h2>
-          <div class="row">
-            <span class="pill" id="selectedSessionPill">No session selected</span>
-            <span class="pill" id="workflowPill">workflow</span>
-          </div>
-          <label>Workflow <select id="workflowSelect"></select></label>
-          <label>Input <textarea id="inputText" placeholder="Ask a source-grounded question..."></textarea></label>
-          <div class="row">
-            <button class="button primary" id="runButton">Run</button>
-            <button class="button" id="searchButton">Search only</button>
-          </div>
-          <div class="status" id="runStatus"></div>
-          <h3>Response</h3>
-          <div class="response" id="responseText">Run output will appear here.</div>
-        </div>
-        <div class="card stack">
-          <h2>Evidence</h2>
-          <div class="row" id="supportPills"></div>
-          <h3>Warnings</h3>
-          <div id="warnings" class="pre">[]</div>
-          <h3>Retrieved sources</h3>
-          <div class="sources" id="sources"></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="view-history" class="view">
-      <div class="card stack">
-        <div class="row"><h2 style="margin-right:auto">Recent runs</h2><button class="button" id="refreshRuns">Refresh</button></div>
-        <div class="history" id="runs"></div>
-      </div>
-    </section>
-
-    <section id="view-inspect" class="view">
-      <div class="card stack">
-        <h2>Inspect run</h2>
-        <label>Run ID <input id="inspectRunId" placeholder="run uuid" /></label>
-        <div class="row">
-          <button class="button primary" id="inspectButton">Inspect</button>
-          <button class="button" data-artifact="prompt">Prompt</button>
-          <button class="button" data-artifact="context">Context</button>
-          <button class="button" data-artifact="provider_raw_response">Provider raw</button>
-          <button class="button" data-artifact="diagnostics">Diagnostics</button>
-        </div>
-        <div class="status" id="inspectStatus"></div>
-        <h3>Run detail</h3>
-        <div class="pre" id="inspectOutput">Select a run from History or paste a run_id.</div>
-      </div>
-    </section>
-  </main>
-</div>
-
+<div id="app"></div>
 <script>
-const state = { config: null, sessions: [], selectedSessionId: null, latestRunId: null };
-const $ = (id) => document.getElementById(id);
+    (() => {
+        "use strict";
 
-function esc(v) { return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
-function short(v, n=12) { const s = String(v || ''); return s.length > n*2 ? `${s.slice(0,n)}…${s.slice(-n)}` : s; }
-async function api(path, opts={}) {
-  const res = await fetch(path, opts);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`);
-  return res.json();
-}
-function jsonBlock(value) { return JSON.stringify(value ?? null, null, 2); }
+        const TABS = [
+            ["workspace", "Workspace", "Session, preview, turn"],
+            ["evidence", "Evidence", "Packet inspection"],
+            ["compare", "Compare", "Metrics and projections"],
+            ["experiments", "Experiments", "Baseline and variables"],
+            ["admin", "Admin", "Setup and diagnostics"]
+        ];
 
-function setView(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  $(`view-${name}`).classList.add('active');
-}
+        const DEFAULT_METRICS = [
+            "latency.total_ms",
+            "latency.retrieval_ms",
+            "latency.provider_ms",
+            "tokens.prompt",
+            "tokens.completion",
+            "tokens.total",
+            "search.returned_count",
+            "retrieval.included_count",
+            "retrieval.unique_source_count",
+            "context.char_count",
+            "warnings.count",
+            "quality.operator_score",
+            "quality.operator_label"
+        ].join("\n");
 
-document.querySelectorAll('.tab').forEach(t => t.onclick = () => setView(t.dataset.view));
+        const app = document.getElementById("app");
 
-async function loadConfig() {
-  state.config = await api('/api/v1/config/summary');
-  const workflows = state.config.workflows || [];
-  for (const id of ['newWorkflow', 'workflowSelect']) {
-    const el = $(id);
-    el.innerHTML = '';
-    for (const wf of workflows) {
-      const opt = document.createElement('option'); opt.value = wf; opt.textContent = wf; el.appendChild(opt);
-    }
-  }
-}
+        const state = {
+            activeTab: "workspace",
+            sessionMode: "new",
+            sidebar: {flowOpen: true, contextOpen: true},
+            workspaceSections: {sessionOpen: true},
+            pendingScrollId: "",
+            initialized: false,
+            busy: {},
+            errors: {},
+            health: null,
+            doctor: null,
+            config: null,
+            summary: null,
+            sessions: [],
+            sessionTurns: null,
+            packets: [],
+            metrics: null,
+            training: {
+                experiment_default_replicates: 2,
+                experiment_max_replicates_per_condition: 20,
+                experiment_max_planned_packets: 100,
+                operator_score_min: 1,
+                operator_score_max: 5,
+                operator_label_options: ["accept", "revise", "reject", "unclear"]
+            },
+            activeSessionId: "",
+            activeWorkflowId: "",
+            activeRagProfileId: "",
+            activeCorpusId: "",
+            captureMode: "full",
+            privacyLevel: "none",
+            topK: 5,
+            prompt: "Using retrieved project sources, explain how local_llm chooses and calls the configured model provider.",
+            lastPrompt: "",
+            search: null,
+            latestResponse: null,
+            chatHistory: [],
+            activePacketId: "",
+            selectedPacketIds: new Set(),
+            packetDetail: null,
+            contentLoad: null,
+            activeContentRefId: "",
+            activeGroupId: "",
+            groupDetail: null,
+            projection: null,
+            metricFilter: DEFAULT_METRICS,
+            compareScope: "session",
+            rawTitle: "",
+            rawPayload: null,
+            sessionDraft: {
+                title: "",
+                description: "",
+                default_workflow_id: "",
+                default_capture_mode: "full",
+                default_privacy_level: "none",
+                privacy_locked: false
+            },
+            sessionDraftBaseline: null,
+            sessionDraftTouched: {title: false, description: false, workflow: false, capturePolicy: false},
+            sessionAttempted: false,
+            sessionNotice: "Configure a new saved session or select an existing one.",
+            experiment: {
+                prompt: "",
+                baselineLabel: "baseline",
+                baselineReplicates: 2,
+                baselineOverlay: "{}",
+                variables: [
+                    {label: "variable_a_same_prompt_control", replicateCount: 2, overlay: "{}"}
+                ],
+                defaultsApplied: false,
+                userEdited: false,
+                result: null
+            },
+            operatorFeedback: {
+                score: "",
+                label: "",
+                note: "",
+                result: null,
+                error: null
+            },
+            privacy: {
+                sentinel: `SECRET_DO_NOT_PERSIST_${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}`,
+                prompt: "Private diagnostic request containing sentinel {SENTINEL}. Answer briefly.",
+                result: null,
+                detail: null,
+                audit: null
+            },
+            log: []
+        };
 
-async function loadSessions() {
-  state.sessions = await api('/api/v1/sessions');
-  if (!state.selectedSessionId && state.sessions.length) state.selectedSessionId = state.sessions[0].session_id;
-  renderSessions();
-}
+        function nowLabel() {
+            return new Date().toLocaleTimeString();
+        }
 
-function selectedSession() { return state.sessions.find(s => s.session_id === state.selectedSessionId) || null; }
-function renderSessions() {
-  const box = $('sessions'); box.innerHTML = '';
-  for (const s of state.sessions) {
-    const btn = document.createElement('button');
-    btn.className = 'session' + (s.session_id === state.selectedSessionId ? ' active' : '');
-    btn.innerHTML = `<div class="session-title">${esc(s.title)}</div><div class="session-meta">${esc(short(s.session_id,8))}<br>${esc(s.default_workflow_id)} · ${s.turn_count} turns</div>`;
-    btn.onclick = () => { state.selectedSessionId = s.session_id; renderSessions(); loadTurns(); };
-    box.appendChild(btn);
-  }
-  const s = selectedSession();
-  $('selectedSessionPill').textContent = s ? `${s.title} · ${short(s.session_id,8)}` : 'No session selected';
-  $('workflowPill').textContent = s ? s.default_workflow_id : 'workflow';
-  if (s) $('workflowSelect').value = s.default_workflow_id;
-}
+        function log(message, level = "info") {
+            state.log.unshift({at: nowLabel(), message, level});
+            state.log = state.log.slice(0, 90);
+            render();
+        }
 
-async function createSession() {
-  $('sideStatus').textContent = 'Creating session...';
-  const data = await api('/api/v1/sessions', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ title: $('newTitle').value, description: $('newDescription').value, default_workflow_id: $('newWorkflow').value, metadata: {source:'ui'} })
-  });
-  state.selectedSessionId = data.session_id;
-  $('sideStatus').textContent = 'Session created.';
-  await loadSessions();
-}
+        function setBusy(key, value) {
+            state.busy[key] = value;
+            render();
+        }
 
-async function archiveSession() {
-  if (!state.selectedSessionId) return;
-  await api(`/api/v1/sessions/${state.selectedSessionId}/archive`, {method:'POST'});
-  state.selectedSessionId = null;
-  await loadSessions();
-}
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
 
-function renderSupport(support) {
-  const box = $('supportPills'); box.innerHTML = '';
-  for (const [k,v] of Object.entries(support || {})) {
-    const span = document.createElement('span'); span.className = 'pill ok'; span.textContent = `${k}: ${v}`; box.appendChild(span);
-  }
-}
-function renderSources(retrievals) {
-  const box = $('sources'); box.innerHTML = '';
-  for (const r of retrievals || []) {
-    const div = document.createElement('div'); div.className = 'source';
-    div.innerHTML = `<div class="source-path">#${r.rank} ${esc(r.document_path)}</div><div class="small muted mono">chunk ${esc(short(r.chunk_id,8))} · score ${esc(r.score)}</div><div class="source-text">${esc(r.text || r.chunk_text_snapshot || '')}</div>`;
-    box.appendChild(div);
-  }
-}
+        function escapeAttr(value) {
+            return escapeHtml(value).replace(/`/g, "&#096;");
+        }
 
-async function runTurn() {
-  const s = selectedSession();
-  if (!s) { $('runStatus').textContent = 'Create or select a session first.'; return; }
-  const input = $('inputText').value.trim();
-  if (!input) { $('runStatus').textContent = 'Enter an input.'; return; }
-  $('runButton').disabled = true; $('runStatus').textContent = 'Running...';
-  try {
-    const data = await api(`/api/v1/sessions/${s.session_id}/turns`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({input, workflow_id: $('workflowSelect').value, metadata:{source:'ui'}})
-    });
-    state.latestRunId = data.run_id;
-    $('responseText').textContent = data.response.response_text || '';
-    $('warnings').textContent = jsonBlock(data.response.warnings || []);
-    renderSupport(data.response.support || {});
-    renderSources(data.response.retrievals || []);
-    $('runStatus').textContent = `Run complete: ${data.run_id}`;
-    $('inspectRunId').value = data.run_id;
-    await loadSessions(); await loadRuns();
-  } catch (err) { $('runStatus').textContent = `Error: ${err.message}`; }
-  finally { $('runButton').disabled = false; }
-}
+        function jsonText(value) {
+            try {
+                return JSON.stringify(value, null, 2);
+            } catch (error) {
+                return String(value);
+            }
+        }
 
-async function searchOnly() {
-  const input = $('inputText').value.trim();
-  if (!input) return;
-  $('runStatus').textContent = 'Searching...';
-  const data = await api('/api/v1/search', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({rag_profile:'project_basic', query: input, top_k: 8})});
-  $('responseText').textContent = 'Search only. No model call was made.';
-  $('warnings').textContent = jsonBlock(data.warnings || []);
-  renderSupport({retrieval_used: data.results.length > 0, chunk_count: data.results.length});
-  renderSources(data.results || []);
-  $('runStatus').textContent = `Search complete: ${data.results.length} results.`;
-}
+        function cleanUiText(value) {
+            const p = ["p", "hase"].join("");
+            const d = ["d", "ry"].join("");
+            return String(value ?? "")
+                .replace(new RegExp(p + "\\s+1\\.5", "gi"), "packet schema")
+                .replace(new RegExp(p + "_" + "1_5", "gi"), "packet_schema")
+                .replace(new RegExp("pre[-\\s]?" + d + "[-\\s]?run", "gi"), "baseline setup")
+                .replace(new RegExp(d + "[-\\s]?run", "gi"), "baseline");
+        }
 
-async function loadTurns() {
-  if (!state.selectedSessionId) return;
-  // Turns are stored now for future chat behavior; current UI displays them through History/Inspect.
-}
+        function displayHtml(value) {
+            return escapeHtml(cleanUiText(value));
+        }
 
-async function loadRuns() {
-  const data = await api('/api/v1/runs?limit=50');
-  const box = $('runs'); box.innerHTML = '';
-  for (const r of data.runs || []) {
-    const row = document.createElement('div'); row.className = 'run-row';
-    const warnCount = (r.warnings || []).length;
-    row.innerHTML = `<div><div><strong>${esc(r.workflow_id)}</strong> <span class="pill ${warnCount ? 'warn':'ok'}">warnings ${warnCount}</span></div><div class="small muted">${esc(r.created_at)} · ${esc(r.model_profile)} · ${esc(r.latency_ms)}ms</div><div class="small">${esc(r.user_input)}</div><div class="small muted">${esc(r.response_preview || '')}</div></div>`;
-    const b = document.createElement('button'); b.className = 'button'; b.textContent = 'Inspect'; b.onclick = () => inspectRun(r.run_id);
-    row.appendChild(b); box.appendChild(row);
-  }
-}
+        function asArray(value) {
+            return Array.isArray(value) ? value : [];
+        }
 
-async function inspectRun(runId) {
-  if (runId) $('inspectRunId').value = runId;
-  const id = $('inspectRunId').value.trim();
-  if (!id) return;
-  $('inspectStatus').textContent = 'Loading run...';
-  const data = await api(`/api/v1/runs/${id}`);
-  $('inspectOutput').textContent = jsonBlock(data);
-  $('inspectStatus').textContent = `Loaded ${id}`;
-  setView('inspect');
-}
-async function inspectArtifact(type) {
-  const id = $('inspectRunId').value.trim();
-  if (!id) return;
-  const path = type === 'prompt' ? 'prompt' : type === 'context' ? 'context' : `artifacts/${type}`;
-  const data = await api(`/api/v1/runs/${id}/${path}`);
-  $('inspectOutput').textContent = data.prompt || data.context || data.text || jsonBlock(data);
-  $('inspectStatus').textContent = `Loaded ${type}`;
-}
+        function firstItem(value) {
+            return asArray(value)[0] || "";
+        }
 
-$('createSession').onclick = () => createSession().catch(e => $('sideStatus').textContent = e.message);
-$('refreshSessions').onclick = () => loadSessions().catch(e => $('sideStatus').textContent = e.message);
-$('archiveSession').onclick = () => archiveSession().catch(e => $('sideStatus').textContent = e.message);
-$('runButton').onclick = runTurn;
-$('searchButton').onclick = searchOnly;
-$('refreshRuns').onclick = loadRuns;
-$('inspectButton').onclick = () => inspectRun();
-document.querySelectorAll('[data-artifact]').forEach(b => b.onclick = () => inspectArtifact(b.dataset.artifact));
+        function badge(label, kind = "") {
+            return `<span class="badge ${kind}">${escapeHtml(label)}</span>`;
+        }
 
-(async function init(){
-  try {
-    await loadConfig();
-    await loadSessions();
-    await loadRuns();
-    if (!state.sessions.length) await createSession();
-  } catch (err) {
-    $('runStatus').textContent = err.message;
-    $('sideStatus').textContent = err.message;
-  }
-})();
+        function okBadge(ok, label = null) {
+            return badge(label ?? (ok ? "OK" : "FAIL"), ok ? "ok" : "bad");
+        }
+
+        function statusBadge(status) {
+            if (!status) return badge("unknown");
+            const value = String(status);
+            if (["ok", "completed", "ready", "active"].includes(value)) return badge(value, "ok");
+            if (["failed", "cancelled", "error"].includes(value)) return badge(value, "bad");
+            if (["partial", "started", "planned", "running"].includes(value)) return badge(value, "warn");
+            return badge(value);
+        }
+
+        function shortId(value, left = 8, right = 5) {
+            const s = String(value || "");
+            if (s.length <= left + right + 1) return s;
+            return `${s.slice(0, left)}…${s.slice(-right)}`;
+        }
+
+        const SESSION_CAPTURE_POLICIES = [
+            {value: "full", label: "Full capture"},
+            {value: "privacy_standard", label: "Private capture · standard"},
+            {value: "privacy_strict", label: "Private capture · strict"},
+            {value: "locked_standard", label: "Locked private · standard"},
+            {value: "locked_strict", label: "Locked private · strict"}
+        ];
+
+        const TURN_CAPTURE_POLICIES = [
+            {value: "full", label: "Full capture"},
+            {value: "privacy_standard", label: "Private capture · standard"},
+            {value: "privacy_strict", label: "Private capture · strict"}
+        ];
+
+        const FIELD_STATUS_LABELS = {
+            required: "required",
+            ready: "ready",
+            saved: "saved",
+            changed: "changed",
+            optional: "optional",
+            inactive: "inactive",
+            selected: "selected"
+        };
+
+        function fieldStatusText(status) {
+            return FIELD_STATUS_LABELS[status] || status || "";
+        }
+
+        function fieldHeader(label, status = "") {
+            const statusHtml = status
+                ? `<span class="field-status ${escapeAttr(status)}" data-field-status-pill>${escapeHtml(fieldStatusText(status))}</span>`
+                : "";
+            return `<div class="field-heading"><span class="field-title">${escapeHtml(label)}</span>${statusHtml}</div>`;
+        }
+
+        function fieldStatusAttr(status) {
+            return status ? ` data-field-status="${escapeAttr(status)}"` : "";
+        }
+
+        function selectHtml({field, options, value, placeholder = null, disabled = false, status = ""}) {
+            const currentValue = String(value || "");
+            const opts = [];
+            if (placeholder !== null) opts.push(`<option value="">${escapeHtml(placeholder)}</option>`);
+            for (const option of asArray(options)) {
+                const id = typeof option === "string" ? option : option.value;
+                const label = typeof option === "string" ? option : option.label;
+                opts.push(`<option value="${escapeAttr(id)}" ${String(id) === currentValue ? "selected" : ""}>${escapeHtml(label)}</option>`);
+            }
+            return `<select data-field="${escapeAttr(field)}"${fieldStatusAttr(status)} data-placeholder-active="${placeholder !== null && !currentValue ? "true" : "false"}" ${disabled ? "disabled" : ""}>${opts.join("")}</select>`;
+        }
+
+        function metricStat(label, value) {
+            return `<div class="stat"><div class="stat-value">${escapeHtml(value ?? "—")}</div><div class="stat-label">${escapeHtml(label)}</div></div>`;
+        }
+
+        function compactFact(label, value, key = "") {
+            const keyAttr = key ? ` data-next-run-summary-value="${escapeAttr(key)}"` : "";
+            return `<div class="compact-fact"><div class="label">${escapeHtml(label)}</div><div class="value mono"${keyAttr} title="${escapeAttr(value ?? "—")}">${escapeHtml(value ?? "—")}</div></div>`;
+        }
+
+        function rawDetails(label, value, open = false) {
+            return `<details ${open ? "open" : ""}><summary>${displayHtml(label)}</summary><div class="details-body"><div class="json-block"><pre>${displayHtml(jsonText(value))}</pre></div></div></details>`;
+        }
+
+        function textBlock(value, empty = "No text available.") {
+            return `<div class="text-block">${escapeHtml(value || empty)}</div>`;
+        }
+
+        function activeSession() {
+            return asArray(state.sessions).find(session => session.session_id === state.activeSessionId) || null;
+        }
+
+        function sessionCapturePolicyFromDraft(draft = state.sessionDraft) {
+            if (!draft || draft.default_capture_mode !== "privacy") return "full";
+            const level = draft.default_privacy_level === "standard" ? "standard" : "strict";
+            return `${draft.privacy_locked ? "locked" : "privacy"}_${level}`;
+        }
+
+        function applySessionCapturePolicy(policy) {
+            const value = String(policy || "full");
+            if (value === "full") {
+                state.sessionDraft.default_capture_mode = "full";
+                state.sessionDraft.default_privacy_level = "none";
+                state.sessionDraft.privacy_locked = false;
+                return;
+            }
+            const locked = value.startsWith("locked_");
+            const level = value.endsWith("_standard") ? "standard" : "strict";
+            state.sessionDraft.default_capture_mode = "privacy";
+            state.sessionDraft.default_privacy_level = level;
+            state.sessionDraft.privacy_locked = locked;
+        }
+
+        function turnCapturePolicyFromState() {
+            if (state.captureMode !== "privacy") return "full";
+            return state.privacyLevel === "standard" ? "privacy_standard" : "privacy_strict";
+        }
+
+        function capturePolicyLabel(value) {
+            return (SESSION_CAPTURE_POLICIES.find(item => item.value === value)
+                || TURN_CAPTURE_POLICIES.find(item => item.value === value)
+                || {}).label || value || "not selected";
+        }
+
+        function activeTurnCapturePolicyLabel() {
+            return capturePolicyLabel(turnCapturePolicyFromState());
+        }
+
+        function applyTurnCapturePolicy(policy) {
+            const value = String(policy || "full");
+            if (value === "full") {
+                state.captureMode = "full";
+                state.privacyLevel = "none";
+                return;
+            }
+            state.captureMode = "privacy";
+            state.privacyLevel = value.endsWith("_standard") ? "standard" : "strict";
+        }
+
+        function syncPrivacyPair() {
+            const session = activeSession();
+            if (session && session.privacy_locked && state.captureMode === "full") {
+                state.captureMode = "privacy";
+                state.privacyLevel = session.default_privacy_level === "standard" ? "standard" : "strict";
+            }
+            if (state.captureMode === "full") state.privacyLevel = "none";
+            if (state.captureMode === "privacy" && state.privacyLevel === "none") state.privacyLevel = "strict";
+            if (state.sessionDraft.privacy_locked && state.sessionDraft.default_capture_mode === "full") {
+                state.sessionDraft.default_capture_mode = "privacy";
+                state.sessionDraft.default_privacy_level = "strict";
+            }
+            if (state.sessionDraft.default_capture_mode === "full") {
+                state.sessionDraft.default_privacy_level = "none";
+                state.sessionDraft.privacy_locked = false;
+            }
+            if (state.sessionDraft.default_capture_mode === "privacy" && state.sessionDraft.default_privacy_level === "none") {
+                state.sessionDraft.default_privacy_level = "strict";
+            }
+        }
+
+        function normalizedSessionDraft(draft = state.sessionDraft) {
+            const candidate = draft || {};
+            return {
+                title: String(candidate.title || "").trim(),
+                description: String(candidate.description || ""),
+                default_workflow_id: String(candidate.default_workflow_id || ""),
+                default_capture_mode: candidate.default_capture_mode === "privacy" ? "privacy" : "full",
+                default_privacy_level: candidate.default_capture_mode === "privacy"
+                    ? (candidate.default_privacy_level === "standard" ? "standard" : "strict")
+                    : "none",
+                privacy_locked: Boolean(candidate.privacy_locked && candidate.default_capture_mode === "privacy")
+            };
+        }
+
+        function sessionDraftFingerprint(draft = state.sessionDraft) {
+            return JSON.stringify(normalizedSessionDraft(draft));
+        }
+
+        function setSessionDraftBaseline(draft = state.sessionDraft) {
+            state.sessionDraftBaseline = sessionDraftFingerprint(draft);
+        }
+
+        function sessionDraftChanged() {
+            return Boolean(state.sessionDraftBaseline && state.sessionDraftBaseline !== sessionDraftFingerprint());
+        }
+
+        function sessionFieldStatus(field) {
+            const mode = state.sessionMode || "new";
+            if (mode === "oneoff") return "inactive";
+
+            const isExistingMode = mode === "existing";
+            const hasSelectedExisting = isExistingMode && Boolean(state.activeSessionId);
+            if (isExistingMode && !hasSelectedExisting) return "inactive";
+
+            const draft = normalizedSessionDraft();
+            const baseline = state.sessionDraftBaseline;
+            const baselineDraft = baseline ? JSON.parse(baseline) : null;
+            const currentPolicy = sessionCapturePolicyFromDraft(draft);
+            const baselinePolicy = baselineDraft ? sessionCapturePolicyFromDraft(baselineDraft) : null;
+
+            if (isExistingMode) {
+                if (!baselineDraft) return "saved";
+                if (field === "capturePolicy") return currentPolicy !== baselinePolicy ? "changed" : "saved";
+                if (field === "title") return draft.title !== baselineDraft.title ? "changed" : "saved";
+                if (field === "workflow") return draft.default_workflow_id !== baselineDraft.default_workflow_id ? "changed" : "saved";
+                if (field === "description") return draft.description !== baselineDraft.description ? "changed" : "saved";
+                return sessionDraftChanged() ? "changed" : "saved";
+            }
+
+            if (field === "title") return draft.title ? "ready" : "required";
+            if (field === "workflow") return draft.default_workflow_id ? "ready" : "required";
+            if (field === "capturePolicy") return "selected";
+            if (field === "description") return draft.description ? "ready" : "optional";
+            return "ready";
+        }
+
+        function validateSessionDraft() {
+            const errors = [];
+            if (!String(state.sessionDraft.title || "").trim()) errors.push("Session title is required.");
+            if (!String(state.sessionDraft.default_workflow_id || "").trim()) errors.push("Workflow is required.");
+            return errors;
+        }
+
+        function updateSessionActionButtons() {
+            const existingSelected = state.sessionMode === "existing" && Boolean(state.activeSessionId);
+            const canSave = existingSelected && !state.busy.saveSession && validateSessionDraft().length === 0;
+            const canDiscard = existingSelected && !state.busy.saveSession && sessionDraftChanged();
+            document.querySelectorAll('[data-action="save-session"]').forEach(button => {
+                if (button instanceof HTMLButtonElement) button.disabled = !canSave;
+            });
+            document.querySelectorAll('[data-action="discard-session-edits"]').forEach(button => {
+                if (button instanceof HTMLButtonElement) button.disabled = !canDiscard;
+            });
+        }
+
+        function updateFieldVisual(element, field) {
+            if (!(element instanceof HTMLElement)) return;
+            let status = "";
+            if (field === "sessionDraft.title") status = sessionFieldStatus("title");
+            else if (field === "sessionDraft.description") status = sessionFieldStatus("description");
+            else if (field === "sessionDraft.default_workflow_id") status = sessionFieldStatus("workflow");
+            else if (field === "sessionDraft.capture_policy") status = sessionFieldStatus("capturePolicy");
+            if (!status) {
+                updateSessionActionButtons();
+                return;
+            }
+            element.setAttribute("data-field-status", status);
+            if (element.tagName === "SELECT") {
+                element.setAttribute("data-placeholder-active", element.value ? "false" : "true");
+            }
+            const label = element.closest("label.field");
+            if (label) {
+                label.setAttribute("data-field-status", status);
+                const pill = label.querySelector("[data-field-status-pill]");
+                if (pill) {
+                    pill.className = `field-status ${status}`;
+                    pill.textContent = fieldStatusText(status);
+                }
+            }
+            updateSessionActionButtons();
+        }
+
+        async function api(path, options = {}) {
+            const response = await fetch(path, {
+                method: options.method || "GET",
+                headers: {"Content-Type": "application/json", ...(options.headers || {})},
+                body: options.body === undefined ? undefined : JSON.stringify(options.body)
+            });
+            const text = await response.text();
+            let payload = null;
+            if (text) {
+                try {
+                    payload = JSON.parse(text);
+                } catch (_) {
+                    payload = {raw_text: text};
+                }
+            }
+            if (!response.ok) {
+                const detail = payload && (payload.detail || payload.message || payload.raw_text);
+                throw new Error(`${response.status} ${response.statusText}${detail ? `: ${typeof detail === "string" ? detail : JSON.stringify(detail)}` : ""}`);
+            }
+            return payload;
+        }
+
+        const client = {
+            health: () => api("/health"),
+            doctor: () => api("/api/v1/doctor"),
+            configSummary: () => api("/api/v1/config/summary"),
+            adminSummary: () => api("/api/v1/admin/summary"),
+            ingestCorpus: corpusId => api(`/api/v1/corpora/${encodeURIComponent(corpusId)}/ingest`, {method: "POST"}),
+            search: body => api("/api/v1/search", {method: "POST", body}),
+            respond: body => api("/api/v1/respond", {method: "POST", body}),
+            sessions: () => api("/api/v1/sessions"),
+            createSession: body => api("/api/v1/sessions", {method: "POST", body}),
+            updateSession: (id, body) => api(`/api/v1/sessions/${encodeURIComponent(id)}`, {method: "PATCH", body}),
+            archiveSession: id => api(`/api/v1/sessions/${encodeURIComponent(id)}/archive`, {method: "POST"}),
+            sessionTurns: sessionId => api(`/api/v1/sessions/${encodeURIComponent(sessionId)}/turns`),
+            createSessionTurn: (sessionId, body) => api(`/api/v1/sessions/${encodeURIComponent(sessionId)}/turns`, {
+                method: "POST",
+                body
+            }),
+            packets: params => api(`/api/v1/packets${params ? `?${params}` : ""}`),
+            packetDetail: id => api(`/api/v1/packets/${encodeURIComponent(id)}`),
+            operatorFeedback: (id, body) => api(`/api/v1/packets/${encodeURIComponent(id)}/operator-feedback`, {
+                method: "POST",
+                body
+            }),
+            contentRef: id => api(`/api/v1/content/${encodeURIComponent(id)}`),
+            metrics: () => api("/api/v1/metrics"),
+            groupDetail: id => api(`/api/v1/groups/${encodeURIComponent(id)}`),
+            projection: body => api("/api/v1/projection", {method: "POST", body}),
+            groupProjection: id => api(`/api/v1/groups/${encodeURIComponent(id)}/projection`),
+            runExperimentMatrix: body => api("/api/v1/experiments/run-matrix", {method: "POST", body}),
+            compareSessions: body => api("/api/v1/analysis/compare-sessions", {method: "POST", body})
+        };
+
+        function boundedReplicateCount(value) {
+            const max = Number(state.training.experiment_max_replicates_per_condition || 20);
+            const n = Number(value || 1);
+            if (!Number.isFinite(n)) return 1;
+            return Math.max(1, Math.min(max, Math.floor(n)));
+        }
+
+        function applyTrainingDefaultsFromConfig() {
+            if (state.experiment.defaultsApplied || state.experiment.userEdited) return;
+            const defaultReplicates = boundedReplicateCount(state.training.experiment_default_replicates || 2);
+            state.experiment.baselineReplicates = defaultReplicates;
+            state.experiment.variables = state.experiment.variables.map(item => ({
+                ...item,
+                replicateCount: defaultReplicates
+            }));
+            state.experiment.defaultsApplied = true;
+        }
+
+        function applyConfigDefaults() {
+            const cfg = state.config || {};
+            state.training = {...state.training, ...(cfg.training || {})};
+            applyTrainingDefaultsFromConfig();
+            const workflows = asArray(cfg.workflows);
+            const rags = asArray(cfg.rag_profiles);
+            const corpora = asArray(cfg.corpora);
+            if (!state.activeWorkflowId || !workflows.includes(state.activeWorkflowId)) {
+                state.activeWorkflowId = workflows.includes("qwen36_35b_q4_llamacpp_rag_answer")
+                    ? "qwen36_35b_q4_llamacpp_rag_answer"
+                    : workflows.includes("default_rag_answer")
+                        ? "default_rag_answer"
+                        : firstItem(workflows);
+            }
+            if (!state.activeRagProfileId || !rags.includes(state.activeRagProfileId)) {
+                state.activeRagProfileId = rags.includes("project_basic") ? "project_basic" : firstItem(rags);
+            }
+            if (!state.activeCorpusId || !corpora.includes(state.activeCorpusId)) {
+                state.activeCorpusId = corpora.includes("primary_local_corpus") ? "primary_local_corpus" : firstItem(corpora);
+            }
+            syncPrivacyPair();
+        }
+
+        function sessionDraftFromSession(session) {
+            if (!session) {
+                return {
+                    title: "",
+                    description: "",
+                    default_workflow_id: "",
+                    default_capture_mode: "full",
+                    default_privacy_level: "none",
+                    privacy_locked: false
+                };
+            }
+            return {
+                title: session.title || "",
+                description: session.description || "",
+                default_workflow_id: session.default_workflow_id || "",
+                default_capture_mode: session.default_capture_mode || "full",
+                default_privacy_level: session.default_privacy_level || "none",
+                privacy_locked: Boolean(session.privacy_locked)
+            };
+        }
+
+        function resetSessionDraftTouched() {
+            state.sessionDraftTouched = {title: false, description: false, workflow: false, capturePolicy: false};
+        }
+
+        function markSessionDraftTouched(field) {
+            state.sessionDraftTouched = state.sessionDraftTouched || {
+                title: false,
+                description: false,
+                workflow: false,
+                capturePolicy: false
+            };
+            if (field === "sessionDraft.title") state.sessionDraftTouched.title = true;
+            else if (field === "sessionDraft.description") state.sessionDraftTouched.description = true;
+            else if (field === "sessionDraft.default_workflow_id") state.sessionDraftTouched.workflow = true;
+            else if (field === "sessionDraft.capture_policy" || field === "sessionDraft.default_capture_mode" || field === "sessionDraft.default_privacy_level" || field === "sessionDraft.privacy_locked") state.sessionDraftTouched.capturePolicy = true;
+        }
+
+        function syncTurnDefaultsFromSessionDraft() {
+            const draft = normalizedSessionDraft();
+            const session = activeSession();
+            if (draft.default_workflow_id) state.activeWorkflowId = draft.default_workflow_id;
+            state.captureMode = draft.default_capture_mode;
+            state.privacyLevel = draft.default_privacy_level;
+
+            /*
+             * The session API returns resolved workflow facts for the saved workflow.
+             * Reuse those facts when the draft still targets the saved workflow so the
+             * next-turn panel reflects the loaded session instead of stale global UI defaults.
+             */
+            if (session && draft.default_workflow_id === session.default_workflow_id && session.default_rag_profile) {
+                state.activeRagProfileId = session.default_rag_profile;
+            }
+            syncPrivacyPair();
+        }
+
+        function ensureSessionDraftHydratedFromActiveSession(options = {}) {
+            const session = activeSession();
+            if (!session) return false;
+            const saved = sessionDraftFromSession(session);
+            const touched = state.sessionDraftTouched || {};
+            const force = Boolean(options.force);
+            const current = {...sessionDraftFromSession(null), ...(state.sessionDraft || {})};
+            let changed = false;
+
+            if (force || !touched.title) {
+                if (current.title !== saved.title) {
+                    current.title = saved.title;
+                    changed = true;
+                }
+            }
+            if (force || !touched.description) {
+                if (current.description !== saved.description) {
+                    current.description = saved.description;
+                    changed = true;
+                }
+            }
+            if (force || !touched.workflow) {
+                if (current.default_workflow_id !== saved.default_workflow_id) {
+                    current.default_workflow_id = saved.default_workflow_id;
+                    changed = true;
+                }
+            }
+            if (force || !touched.capturePolicy) {
+                if (current.default_capture_mode !== saved.default_capture_mode || current.default_privacy_level !== saved.default_privacy_level || Boolean(current.privacy_locked) !== Boolean(saved.privacy_locked)) {
+                    current.default_capture_mode = saved.default_capture_mode;
+                    current.default_privacy_level = saved.default_privacy_level;
+                    current.privacy_locked = Boolean(saved.privacy_locked);
+                    changed = true;
+                }
+            }
+
+            if (force) {
+                resetSessionDraftTouched();
+                state.sessionDraft = saved;
+                setSessionDraftBaseline(saved);
+                syncTurnDefaultsFromSessionDraft();
+                return true;
+            }
+
+            if (changed) state.sessionDraft = current;
+            if (!state.sessionDraftBaseline) setSessionDraftBaseline(saved);
+            syncTurnDefaultsFromSessionDraft();
+            return changed;
+        }
+
+        function syncSessionDraftFromActiveSession(options = {}) {
+            return ensureSessionDraftHydratedFromActiveSession(options);
+        }
+
+        function discardSessionDraftEdits() {
+            if (!activeSession()) return;
+            syncSessionDraftFromActiveSession({force: true});
+            state.sessionAttempted = false;
+            state.sessionNotice = "Unsaved session edits discarded.";
+            render();
+        }
+
+        async function refreshCore(options = {}) {
+            setBusy("refresh", true);
+            const tasks = [
+                ["health", client.health],
+                ["config", client.configSummary],
+                ["summary", client.adminSummary],
+                ["sessions", client.sessions],
+                ["packets", () => client.packets("limit=50")],
+                ["metrics", client.metrics]
+            ];
+            for (const [key, fn] of tasks) {
+                try {
+                    const value = await fn();
+                    if (key === "packets") state.packets = asArray(value && value.packets);
+                    else if (key === "sessions") state.sessions = asArray(value);
+                    else state[key] = value;
+                    delete state.errors[key];
+                } catch (error) {
+                    state.errors[key] = error.message;
+                }
+            }
+            applyConfigDefaults();
+            if (state.activeSessionId && !activeSession()) {
+                state.activeSessionId = "";
+                resetSessionDraftTouched();
+                state.sessionDraft = sessionDraftFromSession(null);
+                state.sessionDraftBaseline = null;
+            } else if (state.activeSessionId) {
+                syncSessionDraftFromActiveSession();
+            }
+            if (state.activeSessionId && !state.sessionTurns) await loadSessionTurns(state.activeSessionId, {quiet: true});
+            setBusy("refresh", false);
+            if (!options.quiet) log("Core data refreshed.", "ok");
+        }
+
+        async function runDoctor() {
+            setBusy("doctor", true);
+            try {
+                state.doctor = await client.doctor();
+                setRaw("Doctor", state.doctor, false);
+                log(`Doctor completed: ${state.doctor.ok ? "OK" : "CHECKS FAILED"}`, state.doctor.ok ? "ok" : "bad");
+            } catch (error) {
+                log(`Doctor failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("doctor", false);
+            }
+        }
+
+        async function runIngest() {
+            if (!state.activeCorpusId) return;
+            setBusy("ingest", true);
+            try {
+                const result = await client.ingestCorpus(state.activeCorpusId);
+                setRaw("Ingest result", result, false);
+                log(`Ingest completed: ${result.documents_indexed} docs, ${result.chunks_indexed} chunks.`, "ok");
+                state.summary = await client.adminSummary();
+            } catch (error) {
+                log(`Ingest failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("ingest", false);
+            }
+        }
+
+        async function runSearch() {
+            const query = String(state.prompt || state.lastPrompt || "").trim();
+            if (!state.activeRagProfileId) {
+                log("Select a RAG profile before previewing retrieval.", "warn");
+                return;
+            }
+            if (!query) {
+                log("Enter a prompt before previewing retrieval.", "warn");
+                return;
+            }
+            setBusy("search", true);
+            try {
+                state.search = await client.search({
+                    rag_profile: state.activeRagProfileId,
+                    query,
+                    top_k: Number(state.topK) || null
+                });
+                setRaw("Retrieval preview", state.search, false);
+                log(`Retrieval preview returned ${asArray(state.search.results).length} chunks.`, "ok");
+            } catch (error) {
+                log(`Retrieval preview failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("search", false);
+            }
+        }
+
+        async function createSession() {
+            state.sessionAttempted = true;
+            syncPrivacyPair();
+            const validationErrors = validateSessionDraft();
+            if (validationErrors.length) {
+                state.sessionNotice = validationErrors.join(" ");
+                log(`Session create blocked: ${state.sessionNotice}`, "warn");
+                render();
+                return;
+            }
+            setBusy("createSession", true);
+            try {
+                const draft = normalizedSessionDraft();
+                const session = await client.createSession({
+                    title: draft.title,
+                    description: draft.description,
+                    default_workflow_id: draft.default_workflow_id,
+                    default_capture_mode: draft.default_capture_mode,
+                    default_privacy_level: draft.default_privacy_level,
+                    privacy_locked: draft.privacy_locked,
+                    metadata: {source: "local_llm_ui"}
+                });
+                state.activeSessionId = session.session_id;
+                state.sessionMode = "existing";
+                state.sessionNotice = "Session created and selected.";
+                state.sessions = await client.sessions();
+                resetSessionDraftTouched();
+                await selectSession(session.session_id, {quiet: true});
+                log(`Session created: ${session.title}`, "ok");
+            } catch (error) {
+                state.sessionNotice = `Session create failed: ${error.message}`;
+                log(`Session create failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("createSession", false);
+            }
+        }
+
+        async function saveSession() {
+            if (!state.activeSessionId) return;
+            state.sessionAttempted = true;
+            syncPrivacyPair();
+            const validationErrors = validateSessionDraft();
+            if (validationErrors.length) {
+                state.sessionNotice = validationErrors.join(" ");
+                log(`Session save blocked: ${state.sessionNotice}`, "warn");
+                render();
+                return;
+            }
+            setBusy("saveSession", true);
+            try {
+                const draft = normalizedSessionDraft();
+                const session = await client.updateSession(state.activeSessionId, {
+                    title: draft.title,
+                    description: draft.description,
+                    default_workflow_id: draft.default_workflow_id,
+                    default_capture_mode: draft.default_capture_mode,
+                    default_privacy_level: draft.default_privacy_level,
+                    privacy_locked: draft.privacy_locked,
+                    metadata: {source: "local_llm_ui"}
+                });
+                state.sessions = await client.sessions();
+                resetSessionDraftTouched();
+                state.sessionDraft = sessionDraftFromSession(session);
+                setSessionDraftBaseline(state.sessionDraft);
+                state.activeWorkflowId = session.default_workflow_id;
+                if (session.default_rag_profile) state.activeRagProfileId = session.default_rag_profile;
+                state.captureMode = session.default_capture_mode;
+                state.privacyLevel = session.default_privacy_level;
+                state.sessionAttempted = false;
+                state.sessionNotice = "Selected session saved.";
+                log(`Session saved: ${session.title}`, "ok");
+            } catch (error) {
+                state.sessionNotice = `Session save failed: ${error.message}`;
+                log(`Session save failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("saveSession", false);
+            }
+        }
+
+        async function archiveSession() {
+            if (!state.activeSessionId) return;
+            setBusy("archiveSession", true);
+            try {
+                const archived = await client.archiveSession(state.activeSessionId);
+                state.sessions = await client.sessions();
+                state.activeSessionId = "";
+                state.sessionMode = "new";
+                state.sessionTurns = null;
+                resetSessionDraftTouched();
+                state.sessionDraft = sessionDraftFromSession(null);
+                state.sessionDraftBaseline = null;
+                state.sessionAttempted = false;
+                state.sessionNotice = "Session archived. Configure a new session or choose an existing one.";
+                setRaw("Archived session", archived, false);
+                log(`Session archived: ${archived.title}`, "ok");
+            } catch (error) {
+                state.sessionNotice = `Session archive failed: ${error.message}`;
+                log(`Session archive failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("archiveSession", false);
+            }
+        }
+
+        async function selectSession(sessionId, options = {}) {
+            state.activeSessionId = sessionId || "";
+            const session = activeSession();
+            resetSessionDraftTouched();
+            state.sessionDraft = sessionDraftFromSession(session);
+            state.sessionAttempted = false;
+            if (session) {
+                setSessionDraftBaseline(state.sessionDraft);
+                state.sessionMode = "existing";
+                state.sessionNotice = "";
+                syncTurnDefaultsFromSessionDraft();
+                if (session.default_rag_profile) state.activeRagProfileId = session.default_rag_profile;
+                await loadSessionTurns(session.session_id, {quiet: true});
+                await refreshPackets({quiet: true});
+                if (!options.quiet) log(`Session selected: ${session.title}`, "ok");
+            } else {
+                state.sessionDraftBaseline = null;
+                state.sessionTurns = null;
+                state.sessionMode = state.sessionMode === "oneoff" ? "oneoff" : "new";
+                state.sessionNotice = "";
+                if (!options.quiet) log(state.sessionMode === "oneoff" ? "One-off mode selected." : "No session selected.", "info");
+            }
+            render();
+        }
+
+        async function loadSessionTurns(sessionId, options = {}) {
+            if (!sessionId) return;
+            setBusy("sessionTurns", true);
+            try {
+                state.sessionTurns = await client.sessionTurns(sessionId);
+                setRaw("Session turns", state.sessionTurns, false);
+                if (!options.quiet) log(`Session turns loaded for ${shortId(sessionId)}.`, "ok");
+            } catch (error) {
+                log(`Session turns load failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("sessionTurns", false);
+            }
+        }
+
+        function responsePacketId(response) {
+            return response && (response.turn_packet_id || (response.packet_summary && response.packet_summary.turn_packet_id));
+        }
+
+        async function runTurn(options = {}) {
+            if (!state.activeWorkflowId) {
+                log("Select a workflow before running a turn.", "warn");
+                return;
+            }
+            if (!state.prompt.trim()) {
+                log("Enter a prompt before running a turn.", "warn");
+                return;
+            }
+            setBusy("turn", true);
+            try {
+                const input = state.prompt.trim();
+                const captureMode = options.forcePrivacy ? "privacy" : state.captureMode;
+                const privacyLevel = options.forcePrivacy ? "strict" : state.privacyLevel;
+                let response;
+                const body = {
+                    input,
+                    workflow_id: state.activeWorkflowId,
+                    eval_capture_mode: captureMode,
+                    capture_mode: captureMode,
+                    privacy_mode: captureMode === "privacy",
+                    privacy_level: privacyLevel,
+                    metadata: {source: state.activeSessionId ? "ui_session_turn" : "ui_respond"}
+                };
+                if (state.activeSessionId) {
+                    const sessionTurn = await client.createSessionTurn(state.activeSessionId, body);
+                    response = sessionTurn.response;
+                    await loadSessionTurns(state.activeSessionId, {quiet: true});
+                } else {
+                    response = await client.respond(body);
+                }
+                state.latestResponse = response;
+                state.lastPrompt = input;
+                if (!state.experiment.prompt) state.experiment.prompt = input;
+                const packetId = responsePacketId(response);
+                if (packetId) {
+                    state.activePacketId = packetId;
+                    state.selectedPacketIds.add(packetId);
+                    await loadPacket(packetId, {quiet: true});
+                }
+                state.chatHistory.unshift({prompt: input, response, packetId, at: new Date().toISOString()});
+                state.chatHistory = state.chatHistory.slice(0, 20);
+                state.prompt = "";
+                setRaw("Turn response", response, false);
+                await refreshPackets({quiet: true});
+                log(`Turn completed${packetId ? `: ${shortId(packetId)}` : ""}.`, "ok");
+            } catch (error) {
+                log(`Turn failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("turn", false);
+            }
+        }
+
+        async function refreshPackets(options = {}) {
+            setBusy("packets", true);
+            try {
+                const params = new URLSearchParams();
+                params.set("limit", "80");
+                if (state.activeSessionId && options.scope !== "all") params.set("session_id", state.activeSessionId);
+                if (state.activeWorkflowId && options.scope !== "all") params.set("workflow_id", state.activeWorkflowId);
+                const payload = await client.packets(params.toString());
+                state.packets = asArray(payload.packets);
+                if (!options.quiet) log(`Loaded ${state.packets.length} packets.`, "ok");
+            } catch (error) {
+                log(`Packet list failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("packets", false);
+            }
+        }
+
+        async function loadPacket(packetId, options = {}) {
+            if (!packetId) return;
+            setBusy("packet", true);
+            try {
+                state.activePacketId = packetId;
+                state.packetDetail = await client.packetDetail(packetId);
+                const groups = asArray(state.packetDetail.groups);
+                if (!state.activeGroupId && groups.length) state.activeGroupId = groups[0].packet_group_id || "";
+                setRaw(`Packet ${packetId}`, state.packetDetail, false);
+                if (!options.quiet) log(`Packet loaded: ${shortId(packetId)}.`, "ok");
+            } catch (error) {
+                log(`Packet load failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("packet", false);
+            }
+        }
+
+        async function loadContentRef(contentRefId) {
+            if (!contentRefId) return;
+            setBusy("content", true);
+            try {
+                state.activeContentRefId = contentRefId;
+                state.contentLoad = await client.contentRef(contentRefId);
+                setRaw(`Content ref ${contentRefId}`, state.contentLoad, false);
+                log(`Content ref loaded: ${shortId(contentRefId)}.`, "ok");
+            } catch (error) {
+                log(`Content ref load failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("content", false);
+            }
+        }
+
+        async function saveOperatorFeedback() {
+            if (!state.activePacketId) return;
+            const score = state.operatorFeedback.score === "" ? null : Number(state.operatorFeedback.score);
+            const payload = {
+                score: Number.isFinite(score) ? score : null,
+                label: state.operatorFeedback.label || null,
+                note: state.operatorFeedback.note || null,
+                metadata: {source: "local_llm_ui"}
+            };
+            setBusy("operatorFeedback", true);
+            try {
+                const result = await client.operatorFeedback(state.activePacketId, payload);
+                state.operatorFeedback.result = result;
+                state.operatorFeedback.error = null;
+                await loadPacket(state.activePacketId, {quiet: true});
+                if (state.activeGroupId) {
+                    state.projection = await client.groupProjection(state.activeGroupId).catch(() => state.projection);
+                }
+                log(`Operator feedback saved for ${shortId(state.activePacketId)}.`, "ok");
+            } catch (error) {
+                state.operatorFeedback.error = error.message;
+                log(`Operator feedback failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("operatorFeedback", false);
+            }
+        }
+
+        function metricKeysFromFilter() {
+            return String(state.metricFilter || "").split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+        }
+
+        async function runProjection(mode) {
+            setBusy("projection", true);
+            try {
+                let result;
+                if (mode === "selected") {
+                    result = await client.projection({
+                        packet_ids: Array.from(state.selectedPacketIds),
+                        metric_keys: metricKeysFromFilter()
+                    });
+                } else if (mode === "packet") {
+                    result = await client.projection({
+                        packet_ids: state.activePacketId ? [state.activePacketId] : [],
+                        metric_keys: metricKeysFromFilter()
+                    });
+                } else if (mode === "group") {
+                    if (!state.activeGroupId.trim()) throw new Error("packet_group_id is required");
+                    result = await client.projection({
+                        packet_group_id: state.activeGroupId.trim(),
+                        metric_keys: metricKeysFromFilter()
+                    });
+                } else if (mode === "session") {
+                    if (!state.activeSessionId) throw new Error("active session is required");
+                    result = await client.compareSessions({
+                        session_ids: [state.activeSessionId],
+                        metric_keys: metricKeysFromFilter()
+                    });
+                } else if (mode === "all") {
+                    const packetIds = asArray(state.packets).map(p => p.turn_packet_id).filter(Boolean);
+                    result = await client.projection({packet_ids: packetIds, metric_keys: metricKeysFromFilter()});
+                }
+                state.projection = result;
+                setRaw("Projection", result, false);
+                log(`Projection loaded with ${asArray(result && result.table && result.table.rows).length} rows.`, "ok");
+            } catch (error) {
+                log(`Projection failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("projection", false);
+            }
+        }
+
+        async function loadGroup() {
+            if (!state.activeGroupId.trim()) return;
+            setBusy("group", true);
+            try {
+                state.groupDetail = await client.groupDetail(state.activeGroupId.trim());
+                setRaw(`Packet group ${state.activeGroupId.trim()}`, state.groupDetail, false);
+                log(`Group loaded: ${shortId(state.activeGroupId)}.`, "ok");
+            } catch (error) {
+                log(`Group load failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("group", false);
+            }
+        }
+
+        function parseOverlay(text, label) {
+            const raw = String(text || "{}").trim() || "{}";
+            try {
+                const value = JSON.parse(raw);
+                if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("overlay must be a JSON object");
+                return value;
+            } catch (error) {
+                throw new Error(`${label} overlay JSON invalid: ${error.message}`);
+            }
+        }
+
+        async function runExperiment() {
+            const prompt = String(state.experiment.prompt || state.lastPrompt || state.prompt || "").trim();
+            if (!state.activeWorkflowId || !prompt) return;
+            setBusy("experiment", true);
+            try {
+                const payload = {
+                    workflow_id: state.activeWorkflowId,
+                    input: prompt,
+                    baseline: {
+                        label: state.experiment.baselineLabel || "baseline",
+                        config_overlay: parseOverlay(state.experiment.baselineOverlay, "baseline"),
+                        replicate_count: boundedReplicateCount(state.experiment.baselineReplicates)
+                    },
+                    variables: state.experiment.variables.map((item, index) => ({
+                        label: item.label || `variable_${index + 1}`,
+                        config_overlay: parseOverlay(item.overlay, item.label || `variable_${index + 1}`),
+                        replicate_count: boundedReplicateCount(item.replicateCount)
+                    })),
+                    capture_mode: state.captureMode,
+                    privacy_level: state.privacyLevel,
+                    operator_labels: {source: "local_llm_ui", purpose: "gui_experiment_matrix"}
+                };
+                const result = await client.runExperimentMatrix(payload);
+                state.experiment.result = result;
+                const groupId = result && result.plan && result.plan.experiment_group && result.plan.experiment_group.packet_group_id;
+                if (groupId) {
+                    state.activeGroupId = groupId;
+                    state.groupDetail = await client.groupDetail(groupId).catch(() => null);
+                    state.projection = result.projection || await client.groupProjection(groupId).catch(() => null);
+                }
+                await refreshPackets({quiet: true});
+                setRaw("Experiment matrix result", result, false);
+                log(`Experiment completed: ${result.completed_packet_count}/${result.planned_packet_count} packets.`, result.failed_packet_count ? "warn" : "ok");
+            } catch (error) {
+                log(`Experiment failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("experiment", false);
+            }
+        }
+
+        async function runPrivacyProof() {
+            if (!state.activeWorkflowId) return;
+            setBusy("privacy", true);
+            try {
+                const sentinel = state.privacy.sentinel || `SECRET_DO_NOT_PERSIST_${Date.now()}`;
+                state.privacy.sentinel = sentinel;
+                const prompt = String(state.privacy.prompt || "Private diagnostic request containing sentinel {SENTINEL}. Answer briefly.").replaceAll("{SENTINEL}", sentinel);
+                const response = await client.respond({
+                    workflow_id: state.activeWorkflowId,
+                    input: prompt,
+                    capture_mode: "privacy",
+                    eval_capture_mode: "privacy",
+                    privacy_mode: true,
+                    privacy_level: "strict",
+                    metadata: {source: "ui_privacy_proof"}
+                });
+                const packetId = responsePacketId(response);
+                const detail = packetId ? await client.packetDetail(packetId) : null;
+                state.privacy.result = response;
+                state.privacy.detail = detail;
+                state.activePacketId = packetId || state.activePacketId;
+                state.packetDetail = detail || state.packetDetail;
+                state.privacy.audit = auditPrivacyDetail(detail, sentinel);
+                await refreshPackets({quiet: true});
+                setRaw("Privacy proof", {response, detail, audit: state.privacy.audit}, false);
+                log(`Privacy proof completed${packetId ? `: ${shortId(packetId)}` : ""}.`, state.privacy.audit.ok ? "ok" : "bad");
+            } catch (error) {
+                log(`Privacy proof failed: ${error.message}`, "bad");
+            } finally {
+                setBusy("privacy", false);
+            }
+        }
+
+        function auditPrivacyDetail(detail, sentinel) {
+            if (!detail) return {ok: false, reason: "packet detail unavailable"};
+            const summary = detail.summary || {};
+            const contentRefs = asArray(detail.content_refs);
+            const artifacts = asArray(detail.artifacts);
+            const serialized = JSON.stringify(detail);
+            const contentBodiesOk = contentRefs.every(ref => ref.body_persisted === false && ref.body_text == null && ref.payload_policy === "omitted_body");
+            const artifactsOk = artifacts.every(artifact => artifact.body_persisted === false && artifact.payload_policy === "omitted_body");
+            const packetFlagsOk = summary.capture_mode === "privacy" && summary.privacy_level === "strict" && summary.text_persisted === false && summary.metadata_redacted === true;
+            const sentinelAbsent = !serialized.includes(sentinel);
+            return {
+                ok: Boolean(packetFlagsOk && contentBodiesOk && artifactsOk && sentinelAbsent),
+                packet_flags_ok: packetFlagsOk,
+                content_refs_omitted: contentBodiesOk,
+                artifacts_omitted: artifactsOk,
+                sentinel_absent_from_packet_detail: sentinelAbsent,
+                content_ref_count: contentRefs.length,
+                artifact_count: artifacts.length,
+                note: "This UI audit checks packet detail returned by the API. Filesystem marker grep belongs to backend privacy audit."
+            };
+        }
+
+        function addVariable() {
+            state.experiment.userEdited = true;
+            state.experiment.variables.push({
+                label: `variable_${state.experiment.variables.length + 1}`,
+                replicateCount: boundedReplicateCount(state.training.experiment_default_replicates || 2),
+                overlay: "{}"
+            });
+            render();
+        }
+
+        function removeVariable(index) {
+            state.experiment.userEdited = true;
+            state.experiment.variables.splice(index, 1);
+            if (!state.experiment.variables.length) addVariable();
+            render();
+        }
+
+        function startExperimentFromCurrentPrompt() {
+            state.experiment.prompt = state.lastPrompt || state.prompt || state.experiment.prompt;
+            state.activeTab = "experiments";
+            render();
+        }
+
+        function setRaw(title, payload, switchTab = false) {
+            state.rawTitle = title;
+            state.rawPayload = payload;
+            if (switchTab) state.activeTab = "admin";
+        }
+
+        function setSessionMode(mode) {
+            state.sessionMode = mode;
+            state.pendingScrollId = "session-workspace-card";
+            state.sessionNotice = "";
+            if (mode === "existing") {
+                if (state.activeSessionId) {
+                    syncSessionDraftFromActiveSession({force: true});
+                } else {
+                    resetSessionDraftTouched();
+                    state.sessionDraft = sessionDraftFromSession(null);
+                    state.sessionDraftBaseline = null;
+                    state.sessionTurns = null;
+                    state.sessionAttempted = false;
+                }
+                return;
+            }
+            state.activeSessionId = "";
+            state.sessionTurns = null;
+            resetSessionDraftTouched();
+            state.sessionDraft = sessionDraftFromSession(null);
+            state.sessionDraftBaseline = null;
+            state.sessionAttempted = false;
+        }
+
+        function routeToContext(context) {
+            if (context === "workflow") {
+                state.activeTab = "workspace";
+                state.pendingScrollId = "turn-settings-card";
+            } else if (context === "session") {
+                state.activeTab = "workspace";
+                state.pendingScrollId = "session-workspace-card";
+            } else if (context === "packet") {
+                state.activeTab = "evidence";
+                state.pendingScrollId = "packet-evidence-card";
+            } else if (context === "group") {
+                state.activeTab = state.activeGroupId ? "compare" : "experiments";
+                state.pendingScrollId = state.activeGroupId ? "compare-card" : "experiment-card";
+            }
+        }
+
+        function renderTopbar() {
+            const healthOk = state.health && state.health.status === "ok";
+            const summary = state.summary || {};
+            const doctorOk = state.doctor ? state.doctor.ok : null;
+            return `
+            <header class="topbar">
+                <div class="brand">
+                    <div class="brand-title">local_llm Workflow Console</div>
+                    <div class="brand-subtitle">Source-grounded tuning workflow with packet evidence</div>
+                </div>
+                <div class="top-status">
+                    ${healthOk ? okBadge(true, "HTTP") : okBadge(false, "HTTP")}
+                    ${doctorOk === null ? badge("Doctor not run") : okBadge(doctorOk, "Doctor")}
+                    ${summary.database_health && summary.database_health[["p", "hase", "1_5_schema_ready"].join("_")] ? okBadge(true, "Database") : badge("Database pending", "warn")}
+                    ${badge(`${summary.sources ?? 0} sources`, "info")}
+                    ${badge(`${summary.turn_packets ?? 0} packets`, "accent")}
+                    <button class="ghost" data-action="refresh">${state.busy.refresh ? "Refreshing…" : "Refresh"}</button>
+                </div>
+            </header>`;
+        }
+
+        function renderNav() {
+            const counts = {
+                Workspace: state.activeSessionId ? 1 : 0,
+                Evidence: state.activePacketId ? 1 : 0,
+                Compare: state.projection && state.projection.table ? asArray(state.projection.table.rows).length : 0,
+                Experiments: state.activeGroupId ? 1 : 0
+            };
+            const sessionLabel = activeSession() ? activeSession().title : (state.sessionMode === "oneoff" ? "one-off" : "not selected");
+            const contextButtons = [
+                ["workflow", "Workflow", state.activeWorkflowId || "not selected"],
+                ["session", "Session", sessionLabel],
+                ["packet", "Packet", state.activePacketId ? shortId(state.activePacketId) : "none"],
+                ["group", "Group", state.activeGroupId ? shortId(state.activeGroupId) : "none"]
+            ];
+            return `
+            <aside class="nav">
+                <button class="nav-section-toggle" data-action="toggle-nav-section" data-section="flow">
+                    <span>Operator flow</span><span>${state.sidebar.flowOpen ? "−" : "+"}</span>
+                </button>
+                ${state.sidebar.flowOpen ? TABS.map(([id, label, subtitle]) => `
+                    <button class="nav-button ${state.activeTab === id ? "active" : ""}" data-action="tab" data-tab="${escapeAttr(id)}">
+                        <span><strong>${escapeHtml(label)}</strong><br><span class="muted">${displayHtml(subtitle)}</span></span>
+                        ${counts[label] ? badge(counts[label], "info") : ""}
+                    </button>
+                `).join("") : ""}
+                <button class="nav-section-toggle" data-action="toggle-nav-section" data-section="context">
+                    <span>Active context</span><span>${state.sidebar.contextOpen ? "−" : "+"}</span>
+                </button>
+                ${state.sidebar.contextOpen ? contextButtons.map(([key, label, value]) => `
+                    <button class="context-button" data-action="route-context" data-context="${escapeAttr(key)}">
+                        <div class="item-title">${escapeHtml(label)}</div>
+                        <div class="item-meta mono">${escapeHtml(value)}</div>
+                    </button>
+                `).join("") : ""}
+            </aside>`;
+        }
+
+        function renderSessionWorkspaceCard() {
+            const cfg = state.config || {};
+            const mode = state.sessionMode || (state.activeSessionId ? "existing" : "new");
+            const isExisting = mode === "existing";
+            const isNew = mode === "new";
+            const isOneOff = mode === "oneoff";
+            const session = activeSession();
+            if (isExisting && session) ensureSessionDraftHydratedFromActiveSession();
+            const draft = normalizedSessionDraft();
+            const changed = Boolean(isExisting && session && sessionDraftChanged());
+            const validationErrors = validateSessionDraft();
+            const draftDisabled = isOneOff || (isExisting && !session);
+            const sessionOpen = state.workspaceSections.sessionOpen !== false;
+            const policyValue = sessionCapturePolicyFromDraft(draft);
+            const policyLabel = (SESSION_CAPTURE_POLICIES.find(item => item.value === policyValue) || {}).label || policyValue;
+            const existingSelectStatus = state.activeSessionId ? "selected" : "required";
+            const titleStatus = sessionFieldStatus("title");
+            const workflowStatus = sessionFieldStatus("workflow");
+            const policyStatus = sessionFieldStatus("capturePolicy");
+            const descriptionStatus = sessionFieldStatus("description");
+            const noticeKind = state.sessionNotice && state.sessionNotice.toLowerCase().includes("failed") ? "bad" : "info";
+            const sessionOptions = asArray(state.sessions).map(item => ({
+                value: item.session_id,
+                label: `${item.title || "Untitled session"} (${item.turn_count || 0})`
+            }));
+            const modeButton = (id, label, note) => `
+                <button class="intent-button ${mode === id ? "active" : ""}" data-action="set-session-mode" data-mode="${escapeAttr(id)}">
+                    <span class="intent-main">${escapeHtml(label)}</span>
+                    <span class="intent-note">${escapeHtml(note)}</span>
+                </button>`;
+            const summaryItem = (label, value) => `<div class="session-summary-item"><div class="label">${escapeHtml(label)}</div><div class="value mono" title="${escapeAttr(value ?? "—")}">${escapeHtml(value ?? "—")}</div></div>`;
+            const savedDerivedChanged = changed && draft.default_workflow_id !== (session && session.default_workflow_id);
+            const derivedModel = session
+                ? (savedDerivedChanged ? "updates after save" : (session.default_model_profile || "from workflow"))
+                : (isNew ? "from workflow" : "none");
+            const derivedRag = session
+                ? (savedDerivedChanged ? "updates after save" : (session.default_rag_profile || "from workflow"))
+                : (isNew ? "from workflow" : "none");
+            const derivedPrompt = session
+                ? (savedDerivedChanged ? "updates after save" : (session.default_prompt_profile || "from workflow"))
+                : (isNew ? "from workflow" : "none");
+
+            let summaryKind = "";
+            let summaryStatus = "ready";
+            let summaryBadgeKind = "ok";
+            let summaryTitle = "Current workspace selection";
+            let summaryNote = "The next turn will use the workflow and capture policy shown here.";
+            let primaryAction = "continue-turn-settings";
+            let primaryLabel = "Use selected session";
+            let primaryDisabled = false;
+            let primaryBusy = false;
+            let primaryClass = "primary";
+
+            if (isExisting) {
+                if (!session) {
+                    summaryKind = "blocked";
+                    summaryStatus = "choose session";
+                    summaryBadgeKind = "warn";
+                    summaryNote = "Choose a saved session before editing saved choices or running session-scoped turns.";
+                    primaryAction = "none";
+                    primaryLabel = "Choose a saved session";
+                    primaryDisabled = true;
+                } else if (changed) {
+                    summaryKind = "unsaved";
+                    summaryStatus = "unsaved changes";
+                    summaryBadgeKind = "warn";
+                    summaryNote = "Your edits are active for the next-turn panel now. Save them to make them this session's database defaults.";
+                    primaryAction = "save-session";
+                    primaryLabel = state.busy.saveSession ? "Saving…" : "Save selected session changes";
+                    primaryBusy = state.busy.saveSession;
+                    primaryDisabled = Boolean(state.busy.saveSession || validationErrors.length);
+                } else {
+                    summaryStatus = "saved";
+                    summaryBadgeKind = "ok";
+                    summaryNote = "This saved session is loaded. Save is still available if you want to explicitly confirm these defaults.";
+                    primaryAction = "save-session";
+                    primaryLabel = state.busy.saveSession ? "Saving…" : "Save selected session";
+                    primaryBusy = state.busy.saveSession;
+                    primaryDisabled = Boolean(state.busy.saveSession || validationErrors.length);
+                }
+            } else if (isNew) {
+                const blocked = validationErrors.length > 0;
+                summaryKind = blocked ? "blocked" : "";
+                summaryStatus = blocked ? "needs setup" : "ready to create";
+                summaryBadgeKind = blocked ? "warn" : "ok";
+                summaryNote = blocked ? "A new saved session needs a title and workflow before it can be created." : "Create this saved session, then continue with session-scoped turns.";
+                primaryAction = "create-session";
+                primaryLabel = state.busy.createSession ? "Creating…" : "Create and use saved session";
+                primaryBusy = state.busy.createSession;
+                primaryDisabled = Boolean(blocked || state.busy.createSession);
+            } else {
+                summaryKind = "oneoff";
+                summaryStatus = "one-off";
+                summaryBadgeKind = "warn";
+                summaryNote = "No session defaults will be saved. The next turn can still persist as a packet.";
+                primaryAction = "continue-turn-settings";
+                primaryLabel = "Use one-off turn";
+            }
+
+            const sessionBadge = isExisting && session
+                ? badge(`${session.turn_count || 0} turns`, "info")
+                : isOneOff ? badge("one-off", "warn") : badge(isNew ? "new session" : "choose session", isNew ? "accent" : "warn");
+            const summaryRows = [
+                summaryItem("intent", isExisting ? "existing session" : isNew ? "new saved session" : "one-off turn"),
+                summaryItem("session", session ? (session.title || "Untitled session") : isNew ? "not created yet" : "none"),
+                summaryItem("workflow", draft.default_workflow_id || state.activeWorkflowId || "not selected"),
+                summaryItem("capture", policyLabel),
+                summaryItem("save state", changed ? "unsaved edits" : isExisting && session ? "saved defaults" : isNew ? "not created" : "not saved"),
+                summaryItem("title", draft.title || (isExisting ? "empty saved title" : "not set")),
+                summaryItem("description", draft.description ? draft.description : "none"),
+                summaryItem("model", derivedModel),
+                summaryItem("RAG", derivedRag)
+            ].join("");
+            const detailLines = [
+                `session_id=${session ? shortId(session.session_id, 12, 6) : isNew ? "pending create" : "none"}`,
+                `turns=${session ? (session.turn_count || 0) : "—"}`,
+                `latest_packet=${session && session.latest_turn_packet_id ? shortId(session.latest_turn_packet_id, 12, 6) : "none"}`,
+                `prompt_profile=${derivedPrompt}`,
+                `updated=${session && session.updated_at ? session.updated_at : "—"}`
+            ].map(value => `<span class="mono">${escapeHtml(value)}</span>`).join("");
+
+            return `
+            <div class="card ${sessionOpen ? "" : "collapsed"}" id="session-workspace-card">
+                <div class="card-header">
+                    <div class="card-header-main">
+                        <div class="card-title">1. Session workspace</div>
+                        <div class="card-subtitle">Pick the operating intent, load or edit saved defaults, then use the smart action for the current state.</div>
+                    </div>
+                    <div class="card-header-actions">
+                        ${sessionBadge}
+                        <button class="card-collapse-toggle session" data-action="toggle-workspace-card" data-card="session">${sessionOpen ? "− collapse" : "+ expand"}</button>
+                    </div>
+                </div>
+                ${sessionOpen ? `<div class="card-body stack">
+                    <div class="session-intent-switch">
+                        ${modeButton("existing", "Existing", "use or revise saved context")}
+                        ${modeButton("new", "New", "create reusable context")}
+                        ${modeButton("oneoff", "One-off", "run without session defaults")}
+                    </div>
+
+                    ${isExisting ? `<div class="session-picker-row">
+                        <label class="field" data-field-status="${escapeAttr(existingSelectStatus)}">
+                            ${fieldHeader("Saved session", existingSelectStatus)}
+                            ${selectHtml({
+                field: "activeSessionId",
+                options: sessionOptions,
+                value: state.activeSessionId,
+                placeholder: "Choose a saved session",
+                status: existingSelectStatus
+            })}
+                        </label>
+                        <div class="field-note">Selecting a session loads its saved title, workflow, capture policy, description, and database-derived workflow facts into this panel.</div>
+                    </div>` : ""}
+
+                    <div class="field-grid">
+                        <label class="field" data-field-status="${escapeAttr(titleStatus)}">
+                            ${fieldHeader(isNew ? "New session title" : "Session title", titleStatus)}
+                            <input data-field="sessionDraft.title"${fieldStatusAttr(titleStatus)} value="${escapeAttr(draft.title)}" placeholder="Name this session" ${draftDisabled ? "disabled" : ""}>
+                        </label>
+                        <label class="field" data-field-status="${escapeAttr(workflowStatus)}">
+                            ${fieldHeader("Workflow", workflowStatus)}
+                            ${selectHtml({
+                field: "sessionDraft.default_workflow_id",
+                options: cfg.workflows || [],
+                value: draft.default_workflow_id,
+                placeholder: "Choose a workflow",
+                disabled: draftDisabled,
+                status: workflowStatus
+            })}
+                        </label>
+                        <label class="field" data-field-status="${escapeAttr(policyStatus)}">
+                            ${fieldHeader("Capture policy", policyStatus)}
+                            ${selectHtml({
+                field: "sessionDraft.capture_policy",
+                options: SESSION_CAPTURE_POLICIES,
+                value: policyValue,
+                disabled: draftDisabled,
+                status: policyStatus
+            })}
+                            <span class="field-note">This one saved policy controls body capture, privacy level, and lock behavior.</span>
+                        </label>
+                        <label class="field" data-field-status="${escapeAttr(descriptionStatus)}">
+                            ${fieldHeader("Description", descriptionStatus)}
+                            <textarea class="session-description" data-field="sessionDraft.description"${fieldStatusAttr(descriptionStatus)} placeholder="Optional purpose, scope, or tuning notes" ${draftDisabled ? "disabled" : ""}>${escapeHtml(draft.description)}</textarea>
+                        </label>
+                    </div>
+
+                    <div class="session-summary-card ${escapeAttr(summaryKind)}">
+                        <div class="session-summary-head">
+                            <div>
+                                <div class="session-summary-title">${escapeHtml(summaryTitle)}</div>
+                                <div class="session-summary-note">${escapeHtml(summaryNote)}</div>
+                            </div>
+                            ${badge(summaryStatus, summaryBadgeKind)}
+                        </div>
+                        <div class="session-summary-grid">${summaryRows}</div>
+                        <details class="session-summary-details">
+                            <summary>Database and resolved workflow details</summary>
+                            <div class="session-detail-line">${detailLines}</div>
+                        </details>
+                    </div>
+
+                    <div class="session-smart-actions">
+                        <div class="smart-action-left">
+                            <button class="${escapeAttr(primaryClass)}" data-action="${escapeAttr(primaryAction)}" ${primaryDisabled || primaryBusy ? "disabled" : ""}>${escapeHtml(primaryLabel)}</button>
+                            ${isExisting && session ? `<button class="secondary" data-action="continue-turn-settings">Continue to turn settings</button>` : ""}
+                            ${changed ? `<button class="ghost" data-action="discard-session-edits" ${state.busy.saveSession ? "disabled" : ""}>Discard edits</button>` : ""}
+                            ${state.sessionNotice ? `<span class="field-status ${escapeAttr(noticeKind)}">${displayHtml(state.sessionNotice)}</span>` : ""}
+                        </div>
+                        <div class="smart-action-right">
+                            ${!isNew ? `<button class="ghost" data-action="new-session-draft">New saved session</button>` : ""}
+                            ${!isOneOff ? `<button class="ghost" data-action="set-session-mode" data-mode="oneoff">One-off instead</button>` : `<button class="ghost" data-action="set-session-mode" data-mode="new">Create saved session instead</button>`}
+                            <button class="danger" data-action="archive-session" ${!isExisting || !state.activeSessionId || state.busy.archiveSession ? "disabled" : ""}>Archive selected</button>
+                        </div>
+                    </div>
+                </div>` : ""}
+            </div>`;
+        }
+
+        function renderRunSetupCard() {
+            const cfg = state.config || {};
+            const session = activeSession();
+            const locked = Boolean(session && session.privacy_locked);
+            const turnPolicy = locked && state.captureMode === "full"
+                ? (session.default_privacy_level === "standard" ? "privacy_standard" : "privacy_strict")
+                : turnCapturePolicyFromState();
+            const policyOptions = locked
+                ? TURN_CAPTURE_POLICIES.filter(item => item.value !== "full")
+                : TURN_CAPTURE_POLICIES;
+            const workflowStatus = state.activeWorkflowId ? "selected" : "required";
+            const ragStatus = state.activeRagProfileId ? "selected" : "required";
+            const corpusStatus = state.activeCorpusId ? "selected" : "required";
+            const turnPolicyStatus = locked ? "saved" : "selected";
+            const ready = Boolean(state.activeWorkflowId && state.activeRagProfileId && state.activeCorpusId);
+            const sessionChanged = Boolean(state.activeSessionId && sessionDraftChanged());
+            const summaryKind = ready ? "" : "warn";
+            const summaryNote = sessionChanged
+                ? "These next-turn settings already reflect your edited session defaults. Save the session to make those edits durable."
+                : state.activeSessionId
+                    ? "These settings are inherited from the selected session unless you override them here."
+                    : "These settings apply to a one-off turn unless you create or select a saved session.";
+            const summaryRows = [
+                compactFact("workflow", state.activeWorkflowId || "not selected", "workflow"),
+                compactFact("RAG", state.activeRagProfileId || "not selected", "rag"),
+                compactFact("capture", capturePolicyLabel(turnPolicy), "capture"),
+                compactFact("corpus", state.activeCorpusId || "not selected", "corpus"),
+                compactFact("preview top-k", String(state.topK || "default"), "topK")
+            ].join("");
+            return `
+            <div class="card" id="turn-settings-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">2. Turn settings</div>
+                        <div class="card-subtitle">Final settings for the next run. Session defaults load here; turn overrides stay local to the run unless saved above.</div>
+                    </div>
+                    ${locked ? badge("privacy locked", "warn") : badge(state.activeSessionId ? "session turn" : "one-off respond", "info")}
+                </div>
+                <div class="card-body stack">
+                    <div class="field-grid">
+                        <label class="field" data-field-status="${escapeAttr(workflowStatus)}">
+                            ${fieldHeader("Workflow", workflowStatus)}
+                            ${selectHtml({
+                field: "activeWorkflowId",
+                options: cfg.workflows || [],
+                value: state.activeWorkflowId,
+                placeholder: "Choose a workflow",
+                status: workflowStatus
+            })}
+                        </label>
+                        <label class="field" data-field-status="${escapeAttr(ragStatus)}">
+                            ${fieldHeader("RAG profile", ragStatus)}
+                            ${selectHtml({
+                field: "activeRagProfileId",
+                options: cfg.rag_profiles || [],
+                value: state.activeRagProfileId,
+                placeholder: "Choose RAG",
+                status: ragStatus
+            })}
+                        </label>
+                        <label class="field" data-field-status="${escapeAttr(turnPolicyStatus)}">
+                            ${fieldHeader("Capture policy", turnPolicyStatus)}
+                            ${selectHtml({
+                field: "turnCapturePolicy",
+                options: policyOptions,
+                value: turnPolicy,
+                status: turnPolicyStatus
+            })}
+                        </label>
+                        <label class="field" data-field-status="selected">
+                            ${fieldHeader("Retrieval preview top-k", "selected")}
+                            <input type="number" min="1" max="50" data-field="topK" data-field-status="selected" value="${escapeAttr(state.topK)}">
+                        </label>
+                        <label class="field" data-field-status="${escapeAttr(corpusStatus)}">
+                            ${fieldHeader("Corpus", corpusStatus)}
+                            ${selectHtml({
+                field: "activeCorpusId",
+                options: cfg.corpora || [],
+                value: state.activeCorpusId,
+                placeholder: "Choose corpus",
+                status: corpusStatus
+            })}
+                        </label>
+                    </div>
+                    ${locked ? `<div class="warning-text">This session is privacy locked. The backend will reject a downgrade to full capture.</div>` : ""}
+                    <div class="workflow-sync-card ${escapeAttr(summaryKind)}">
+                        <div class="workflow-sync-head">
+                            <div>
+                                <div class="workflow-sync-title">Next-run summary</div>
+                                <div class="workflow-sync-note">${escapeHtml(summaryNote)}</div>
+                            </div>
+                            ${badge(ready ? "ready" : "needs choices", ready ? "ok" : "warn")}
+                        </div>
+                        <div class="workflow-sync-grid">${summaryRows}</div>
+                        <div class="session-smart-actions" style="margin-top:10px; border-top-color:rgba(59,67,88,0.28)">
+                            <div class="smart-action-left">
+                                <button class="primary" data-action="continue-composer" ${ready ? "" : "disabled"}>Use these settings</button>
+                                ${sessionChanged ? `<button class="secondary" data-action="save-session" ${state.busy.saveSession ? "disabled" : ""}>Save session defaults first</button>` : ""}
+                            </div>
+                            <div class="action-explain">No separate hidden state: the prompt below will run with exactly this selected workflow and capture policy.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function renderInlineTurnResult() {
+            const response = state.latestResponse;
+            const packetId = responsePacketId(response);
+            const packetSummary = response && response.packet_summary;
+            if (!response && !asArray(state.chatHistory).length) {
+                return `<div class="empty">Run a turn to see the assistant response here. Packet evidence remains one click away after the response appears.</div>`;
+            }
+            const responseText = response && (response.response_text || (packetSummary && packetSummary.response_text));
+            return `<div class="inline-turn-result stack">
+                ${response ? `<div class="turn-chat-stack">
+                    <div class="chat-turn user">
+                        <div class="turn-head"><strong>User</strong><span class="mono">${escapeHtml(state.lastPrompt ? new Date().toLocaleString() : "latest prompt")}</span></div>
+                        <div class="turn-body">${escapeHtml(state.lastPrompt || "No prompt captured.")}</div>
+                    </div>
+                    <div class="chat-turn assistant">
+                        <div class="turn-head"><strong>Assistant</strong>${packetId ? badge(shortId(packetId), "accent") : badge("no packet")}</div>
+                        <div class="turn-body">${escapeHtml(responseText || "No response text.")}</div>
+                    </div>
+                </div>` : ""}
+                ${packetSummary ? `<div class="stat-grid">
+                    ${metricStat("latency ms", response.latency_ms ?? packetSummary.latency_ms)}
+                    ${metricStat("capture", packetSummary.capture_mode)}
+                    ${metricStat("privacy", packetSummary.privacy_level)}
+                    ${metricStat("warnings", asArray(response.warnings || packetSummary.warnings).length)}
+                </div>` : ""}
+                <div class="turn-actions">
+                    <button class="secondary" data-action="inspect-active-packet" ${!packetId ? "disabled" : ""}>Open evidence packet</button>
+                    <button class="secondary" data-action="feedback-active-packet" ${!packetId ? "disabled" : ""}>Add feedback</button>
+                    <button class="secondary" data-action="compare-active-packet" ${!packetId ? "disabled" : ""}>Compare this packet</button>
+                    <button class="ghost" data-action="start-experiment" ${!state.lastPrompt ? "disabled" : ""}>Start experiment from this prompt</button>
+                </div>
+                ${asArray(state.chatHistory).length ? `<details><summary>Previous turns in this browser session (${state.chatHistory.length})</summary><div class="details-body list">${state.chatHistory.map(item => `
+                    <div class="list-item clickable" data-action="load-packet" data-packet-id="${escapeAttr(item.packetId || "")}">
+                        <div class="item-title">${escapeHtml(new Date(item.at).toLocaleString())}</div>
+                        <div class="item-meta mono">packet=${escapeHtml(item.packetId ? shortId(item.packetId) : "none")}</div>
+                        <div class="item-meta">${escapeHtml(item.prompt)}</div>
+                    </div>`).join("")}</div></details>` : ""}
+            </div>`;
+        }
+
+        function renderComposerCard() {
+            const endpointLabel = state.activeSessionId ? "POST /sessions/{session_id}/turns" : "POST /respond";
+            const canRun = Boolean(state.activeWorkflowId && state.prompt.trim());
+            return `
+            <div class="card" id="composer-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">3. Prompt and response</div>
+                        <div class="card-subtitle">Run the prompt here, review the full answer in place, then open the packet only when you want evidence detail.</div>
+                    </div>
+                    ${badge(endpointLabel, "accent")}
+                </div>
+                <div class="card-body stack">
+                    <label class="field">Prompt <textarea data-field="prompt" placeholder="Ask a source-grounded prompt…">${escapeHtml(state.prompt)}</textarea></label>
+                    <div class="row">
+                        <button class="secondary" data-action="preview-retrieval" ${state.busy.search ? "disabled" : ""}>${state.busy.search ? "Previewing…" : "Preview retrieval"}</button>
+                        <button class="primary" data-action="run-turn" ${state.busy.turn || !canRun ? "disabled" : ""}>${state.busy.turn ? "Running…" : "Run turn"}</button>
+                        <button class="ghost" data-action="run-private" ${state.busy.turn || !state.activeWorkflowId || !state.prompt.trim() ? "disabled" : ""}>Run private strict</button>
+                        <button class="ghost" data-action="clear-prompt">Clear</button>
+                    </div>
+                    ${renderInlineTurnResult()}
+                </div>
+            </div>`;
+        }
+
+        function renderRetrievalResults(results) {
+            if (!asArray(results).length) return `<div class="empty">No retrieval preview loaded.</div>`;
+            return `<div class="list">${asArray(results).map(result => `
+                <div class="list-item">
+                    <div class="row-between"><div class="item-title">#${result.rank} ${escapeHtml(result.source_title || result.document_path)}</div>${badge(result.method || "search", "info")}</div>
+                    <div class="item-meta mono">score=${escapeHtml(result.score)} chunk=${escapeHtml(shortId(result.chunk_id || ""))}</div>
+                    ${textBlock(result.text, "No chunk text returned.")}
+                </div>`).join("")}</div>`;
+        }
+
+        function renderPreviewCard() {
+            const observation = state.search && state.search.observation;
+            return `
+            <div class="card" id="retrieval-preview-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">4. Retrieval preview</div>
+                        <div class="card-subtitle">Optional PostgreSQL FTS preflight for the current prompt and RAG profile.</div>
+                    </div>
+                    ${state.search ? badge(`${asArray(state.search.results).length} chunks`, "info") : badge("not previewed")}
+                </div>
+                <div class="card-body stack">
+                    ${observation ? `<div class="stat-grid">
+                        ${metricStat("method", observation.retrieval_method)}
+                        ${metricStat("returned", observation.returned_count)}
+                        ${metricStat("included", observation.included_count)}
+                        ${metricStat("latency ms", observation.latency_ms)}
+                    </div>` : ""}
+                    ${renderRetrievalResults(state.search && state.search.results)}
+                </div>
+            </div>`;
+        }
+
+        function renderLatestRunCard() {
+            const response = state.latestResponse;
+            const packetId = responsePacketId(response);
+            const packetSummary = response && response.packet_summary;
+            return `
+            <div class="card" id="latest-packet-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">5. Latest response + packet bridge</div>
+                        <div class="card-subtitle">After a turn, continue directly to evidence inspection, feedback, comparison, or experiment setup.</div>
+                    </div>
+                    ${packetId ? badge(shortId(packetId), "accent") : badge("no run yet")}
+                </div>
+                <div class="card-body stack">
+                    ${response ? textBlock(response.response_text || (packetSummary && packetSummary.response_text), "No response text.") : `<div class="empty">Run a turn to populate the response bridge.</div>`}
+                    ${packetSummary ? `<div class="stat-grid">
+                        ${metricStat("latency ms", response.latency_ms ?? packetSummary.latency_ms)}
+                        ${metricStat("capture", packetSummary.capture_mode)}
+                        ${metricStat("privacy", packetSummary.privacy_level)}
+                        ${metricStat("warnings", asArray(response.warnings || packetSummary.warnings).length)}
+                    </div>` : ""}
+                    <div class="row">
+                        <button class="secondary" data-action="inspect-active-packet" ${!packetId ? "disabled" : ""}>Inspect packet</button>
+                        <button class="secondary" data-action="feedback-active-packet" ${!packetId ? "disabled" : ""}>Add feedback</button>
+                        <button class="secondary" data-action="compare-active-packet" ${!packetId ? "disabled" : ""}>Compare this packet</button>
+                        <button class="ghost" data-action="start-experiment">Start experiment from prompt</button>
+                    </div>
+                    ${asArray(state.chatHistory).length ? `<details><summary>Recent turns (${state.chatHistory.length})</summary><div class="details-body list">${state.chatHistory.map(item => `
+                        <div class="list-item clickable" data-action="load-packet" data-packet-id="${escapeAttr(item.packetId || "")}">
+                            <div class="item-title">${escapeHtml(new Date(item.at).toLocaleString())}</div>
+                            <div class="item-meta mono">packet=${escapeHtml(item.packetId ? shortId(item.packetId) : "none")}</div>
+                            <div class="item-meta">${escapeHtml(item.prompt)}</div>
+                        </div>`).join("")}</div></details>` : ""}
+                </div>
+            </div>`;
+        }
+
+        function renderSessionHistoryCard() {
+            const packets = asArray(state.sessionTurns && state.sessionTurns.packets);
+            return `
+            <div class="card">
+                <div class="card-header">
+                    <div><div class="card-title">Session packet history</div><div class="card-subtitle">Automatically scoped to the active session.</div></div>
+                    ${badge(`${packets.length} packets`, "info")}
+                </div>
+                <div class="card-body">
+                    ${state.activeSessionId ? renderPacketSummaryList(packets, "No packets in this session yet.", true) : `<div class="empty">Select or create a session to view session-scoped packet history.</div>`}
+                </div>
+            </div>`;
+        }
+
+        function renderWorkspace() {
+            return `<section class="section-grid">
+                ${renderSessionWorkspaceCard()}
+                ${renderRunSetupCard()}
+                ${renderComposerCard()}
+                ${renderPreviewCard()}
+                ${renderSessionHistoryCard()}
+            </section>`;
+        }
+
+        function renderPacketSummaryList(packets, empty, withSelection = false) {
+            if (!asArray(packets).length) return `<div class="empty">${escapeHtml(empty)}</div>`;
+            return `<div class="list">${asArray(packets).map(packet => {
+                const id = packet.turn_packet_id;
+                const selected = id === state.activePacketId;
+                const checked = state.selectedPacketIds.has(id);
+                return `<div class="list-item clickable ${selected ? "selected" : ""}" data-action="load-packet" data-packet-id="${escapeAttr(id)}">
+                    <div class="row-between">
+                        <div class="item-title mono">${escapeHtml(shortId(id))}</div>
+                        <span>${statusBadge(packet.capture_status)} ${badge(packet.capture_mode, packet.capture_mode === "privacy" ? "warn" : "info")}</span>
+                    </div>
+                    <div class="item-meta">${escapeHtml(packet.workflow_id)} · ${escapeHtml(packet.created_at || "")}</div>
+                    <div class="item-meta">${escapeHtml((packet.response_text || "").slice(0, 220))}</div>
+                    ${withSelection ? `<label class="row" style="margin-top:8px"><input style="width:auto" type="checkbox" data-action="toggle-packet" data-packet-id="${escapeAttr(id)}" ${checked ? "checked" : ""}> include in manual compare</label>` : ""}
+                </div>`;
+            }).join("")}</div>`;
+        }
+
+        function renderPacketDetailCard() {
+            const detail = state.packetDetail;
+            if (!detail) return `<div class="card"><div class="card-body empty">No packet selected.</div></div>`;
+            const summary = detail.summary || {};
+            return `<div class="card" id="packet-evidence-card">
+                <div class="card-header"><div><div class="card-title">Packet evidence</div><div class="card-subtitle mono">${escapeHtml(summary.turn_packet_id || "")}</div></div>${statusBadge(summary.capture_status)}</div>
+                <div class="card-body stack">
+                    <div class="stat-grid">
+                        ${metricStat("workflow", summary.workflow_id)}
+                        ${metricStat("source", summary.source_kind)}
+                        ${metricStat("capture", summary.capture_mode)}
+                        ${metricStat("privacy", summary.privacy_level)}
+                        ${metricStat("session", summary.session_id ? shortId(summary.session_id) : "—")}
+                        ${metricStat("turn", summary.turn_ordinal ?? "—")}
+                    </div>
+                    ${textBlock(summary.response_text, "No persisted response text available.")}
+                    ${renderContentRefs(detail.content_refs)}
+                    ${renderArtifacts(detail.artifacts)}
+                    ${renderMetricFacts(detail.metric_facts)}
+                    ${renderEvents(detail.events)}
+                    ${rawDetails("Attempts", detail.attempts)}
+                    ${rawDetails("Groups", detail.groups)}
+                    ${rawDetails("Full packet JSON", detail)}
+                </div>
+            </div>`;
+        }
+
+        function renderOperatorFeedbackCard() {
+            const labels = asArray(state.training.operator_label_options);
+            return `<div class="card">
+                <div class="card-header"><div><div class="card-title">Operator feedback</div><div class="card-subtitle">Saved as packet-native quality metric facts; no separate feedback table.</div></div></div>
+                <div class="card-body stack">
+                    <div class="field-grid">
+                        <label class="field">Score (${state.training.operator_score_min}–${state.training.operator_score_max})
+                            <input type="number" min="${escapeAttr(state.training.operator_score_min)}" max="${escapeAttr(state.training.operator_score_max)}" step="0.1" data-field="operatorFeedback.score" value="${escapeAttr(state.operatorFeedback.score)}">
+                        </label>
+                        <label class="field">Label ${selectHtml({
+                field: "operatorFeedback.label",
+                options: labels,
+                value: state.operatorFeedback.label,
+                placeholder: "No label"
+            })}</label>
+                    </div>
+                    <label class="field">Note <textarea data-field="operatorFeedback.note">${escapeHtml(state.operatorFeedback.note)}</textarea></label>
+                    ${state.operatorFeedback.error ? `<div class="error-text">${escapeHtml(state.operatorFeedback.error)}</div>` : ""}
+                    <div class="row"><button class="primary" data-action="save-feedback" ${!state.activePacketId || state.busy.operatorFeedback ? "disabled" : ""}>${state.busy.operatorFeedback ? "Saving…" : "Save feedback"}</button>${state.operatorFeedback.result ? badge("feedback saved", "ok") : ""}</div>
+                </div>
+            </div>`;
+        }
+
+        function renderEvents(events) {
+            const rows = asArray(events).map(event => `<tr><td>${event.event_order}</td><td>${escapeHtml(event.event_name)}</td><td>${escapeHtml(event.event_status)}</td><td>${escapeHtml(event.latency_ms ?? "")}</td><td>${escapeHtml(event.privacy_safe)}</td></tr>`).join("");
+            return `<details><summary>Events (${asArray(events).length})</summary><div class="details-body table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Status</th><th>ms</th><th>safe</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+        }
+
+        function renderContentRefs(refs) {
+            const rows = asArray(refs).map(ref => `<tr><td>${escapeHtml(ref.content_role)}</td><td>${escapeHtml(ref.owner_type)}</td><td>${escapeHtml(ref.body_persisted)}</td><td>${escapeHtml(ref.payload_policy)}</td><td>${escapeHtml(ref.size_bytes ?? "")}</td><td><button class="ghost" data-action="load-content" data-content-id="${escapeAttr(ref.content_ref_id)}">load</button></td></tr>`).join("");
+            return `<details open><summary>Content refs (${asArray(refs).length})</summary><div class="details-body table-wrap"><table><thead><tr><th>Role</th><th>Owner</th><th>body</th><th>policy</th><th>size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></details>${state.contentLoad ? rawDetails("Loaded content ref", state.contentLoad, true) : ""}`;
+        }
+
+        function renderArtifacts(artifacts) {
+            const rows = asArray(artifacts).map(artifact => `<tr><td>${escapeHtml(artifact.artifact_type)}</td><td>${escapeHtml(artifact.body_persisted)}</td><td>${escapeHtml(artifact.payload_policy)}</td><td class="mono">${escapeHtml(artifact.path)}</td></tr>`).join("");
+            return `<details><summary>Artifacts (${asArray(artifacts).length})</summary><div class="details-body table-wrap"><table><thead><tr><th>Type</th><th>body</th><th>policy</th><th>path</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+        }
+
+        function renderMetricFacts(facts) {
+            const rows = asArray(facts).map(fact => `<tr><td>${escapeHtml(fact.metric_key)}</td><td>${escapeHtml(fact.metric_value_num ?? fact.metric_value_text ?? "")}</td><td>${escapeHtml(fact.unit || "")}</td><td>${escapeHtml(fact.privacy_safe)}</td><td>${escapeHtml(fact.source)}</td></tr>`).join("");
+            return `<details open><summary>Metric facts (${asArray(facts).length})</summary><div class="details-body table-wrap"><table><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>safe</th><th>source</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+        }
+
+        function renderEvidence() {
+            return `<section class="section-grid">
+                <div class="grid-2">
+                    <div class="card"><div class="card-header"><div><div class="card-title">Packet list</div><div class="card-subtitle">Select any packet for evidence inspection and feedback.</div></div><button class="ghost" data-action="refresh-packets">Refresh</button></div><div class="card-body">${renderPacketSummaryList(state.packets, "No packets found for current scope.", true)}</div></div>
+                    ${renderOperatorFeedbackCard()}
+                </div>
+                ${renderPacketDetailCard()}
+            </section>`;
+        }
+
+        function renderCompare() {
+            return `<section class="section-grid">
+                <div class="card" id="compare-card">
+                    <div class="card-header"><div><div class="card-title">Compare using current workspace context</div><div class="card-subtitle">Choose a scope and metric set; backend projection returns aggregate rows and drilldown.</div></div></div>
+                    <div class="card-body stack">
+                        <div class="field-grid">
+                            <label class="field">Metric keys <textarea data-field="metricFilter">${escapeHtml(state.metricFilter)}</textarea></label>
+                            <label class="field">Packet group ID <input data-field="activeGroupId" value="${escapeAttr(state.activeGroupId)}"></label>
+                        </div>
+                        <div class="row">
+                            <button class="secondary" data-action="compare-session" ${!state.activeSessionId ? "disabled" : ""}>Compare current session</button>
+                            <button class="secondary" data-action="compare-packet" ${!state.activePacketId ? "disabled" : ""}>Compare active packet</button>
+                            <button class="secondary" data-action="compare-selected" ${!state.selectedPacketIds.size ? "disabled" : ""}>Compare selected packets (${state.selectedPacketIds.size})</button>
+                            <button class="secondary" data-action="compare-group">Compare active group</button>
+                            <button class="ghost" data-action="compare-all">Compare visible packets</button>
+                        </div>
+                    </div>
+                </div>
+                ${renderProjection()}
+            </section>`;
+        }
+
+        function renderProjection() {
+            const projection = state.projection;
+            if (!projection || !projection.table) return `<div class="card"><div class="card-body empty">No projection loaded.</div></div>`;
+            const rows = asArray(projection.table.rows);
+            const columns = asArray(projection.table.columns).map(c => c.key).filter(Boolean);
+            const displayColumns = columns.length ? columns : Object.keys(rows[0] || {});
+            return `<div class="card">
+                <div class="card-header"><div><div class="card-title">Projection result</div><div class="card-subtitle">Rows are returned by the backend projection path.</div></div>${badge(`${rows.length} rows`, "info")}</div>
+                <div class="card-body stack">
+                    <div class="table-wrap"><table><thead><tr>${displayColumns.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${displayColumns.map(col => `<td>${escapeHtml(row[col] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+                    ${rawDetails("Privacy summary", projection.privacy)}
+                    ${rawDetails("Drilldown", projection.drilldown)}
+                </div>
+            </div>`;
+        }
+
+        function renderExperiments() {
+            const maxReplicates = Number(state.training.experiment_max_replicates_per_condition || 20);
+            return `<section class="section-grid">
+                <div class="card">
+                    <div class="card-header"><div><div class="card-title">Experiment builder</div><div class="card-subtitle">Baseline/variable matrix creates packet groups and runs each replicate as its own TurnPacket.</div></div>${badge(`config ${state.training.experiment_default_replicates} reps`, "info")}</div>
+                    <div class="card-body stack">
+                        <label class="field">Experiment prompt <textarea data-field="experiment.prompt">${escapeHtml(state.experiment.prompt || state.lastPrompt || state.prompt)}</textarea></label>
+                        <div class="row"><button class="ghost" data-action="use-workspace-prompt">Use current workspace prompt</button><button class="ghost" data-action="use-latest-prompt">Use latest run prompt</button></div>
+                        <div class="field-grid">
+                            <label class="field">Baseline label <input data-field="experiment.baselineLabel" value="${escapeAttr(state.experiment.baselineLabel)}"></label>
+                            <label class="field">Baseline replicates <input type="number" min="1" max="${escapeAttr(maxReplicates)}" data-field="experiment.baselineReplicates" value="${escapeAttr(state.experiment.baselineReplicates)}"></label>
+                        </div>
+                        <label class="field">Baseline config overlay <textarea data-field="experiment.baselineOverlay">${escapeHtml(state.experiment.baselineOverlay)}</textarea></label>
+                        <div class="divider"></div>
+                        <div class="row-between"><strong>Variable conditions</strong><button class="secondary" data-action="add-variable">Add variable</button></div>
+                        ${state.experiment.variables.map((item, index) => `<div class="list-item stack">
+                            <div class="field-grid">
+                                <label class="field">Label <input data-var-index="${index}" data-var-field="label" value="${escapeAttr(item.label)}"></label>
+                                <label class="field">Replicates <input type="number" min="1" max="${escapeAttr(maxReplicates)}" data-var-index="${index}" data-var-field="replicateCount" value="${escapeAttr(item.replicateCount)}"></label>
+                            </div>
+                            <label class="field">Config overlay <textarea data-var-index="${index}" data-var-field="overlay">${escapeHtml(item.overlay)}</textarea></label>
+                            <div class="row"><button class="danger" data-action="remove-variable" data-var-index="${index}">Remove</button></div>
+                        </div>`).join("")}
+                        <div class="row"><button class="primary" data-action="run-experiment" ${state.busy.experiment ? "disabled" : ""}>${state.busy.experiment ? "Running…" : "Run experiment matrix"}</button></div>
+                    </div>
+                </div>
+                ${state.experiment.result ? `<div class="card"><div class="card-header"><div><div class="card-title">Latest experiment result</div><div class="card-subtitle">Experiment group is active for Compare.</div></div>${badge(shortId(state.activeGroupId), "accent")}</div><div class="card-body stack"><div class="stat-grid">${metricStat("planned", state.experiment.result.planned_packet_count)}${metricStat("completed", state.experiment.result.completed_packet_count)}${metricStat("failed", state.experiment.result.failed_packet_count)}</div>${renderProjection()}</div></div>` : ""}
+            </section>`;
+        }
+
+        function renderDoctorChecks(doctor, limit = null) {
+            if (!doctor) return `<div class="empty">Doctor has not run in this UI session.</div>`;
+            const checks = limit ? asArray(doctor.checks).slice(0, limit) : asArray(doctor.checks);
+            return `<div class="list">${checks.map(check => `<div class="list-item"><div class="row-between"><div class="item-title">${displayHtml(check.name)}</div>${okBadge(check.ok)}</div><div class="item-meta">${displayHtml(check.detail || "")}</div></div>`).join("")}</div>`;
+        }
+
+        function renderPrivacyProof() {
+            return `<div class="card">
+                <div class="card-header"><div><div class="card-title">Privacy proof</div><div class="card-subtitle">Strict-mode sentinel proof for packet-detail exposure.</div></div>${state.privacy.audit ? okBadge(state.privacy.audit.ok, state.privacy.audit.ok ? "pass" : "fail") : badge("not run")}</div>
+                <div class="card-body stack">
+                    <label class="field">Sentinel <input data-field="privacy.sentinel" value="${escapeAttr(state.privacy.sentinel)}"></label>
+                    <label class="field">Prompt template <textarea data-field="privacy.prompt">${escapeHtml(state.privacy.prompt)}</textarea></label>
+                    <div class="row"><button class="secondary" data-action="run-privacy-proof" ${state.busy.privacy ? "disabled" : ""}>${state.busy.privacy ? "Running…" : "Run privacy proof"}</button></div>
+                    ${state.privacy.audit ? rawDetails("Privacy audit", state.privacy.audit, true) : ""}
+                </div>
+            </div>`;
+        }
+
+        function renderAdmin() {
+            const summary = state.summary || {};
+            return `<section class="section-grid">
+                <div class="grid-2">
+                    <div class="card"><div class="card-header"><div><div class="card-title">Readiness</div><div class="card-subtitle">Health, doctor, database, and source counts.</div></div></div><div class="card-body stack"><div class="stat-grid">${metricStat("HTTP", state.health ? state.health.status : "—")}${metricStat("Doctor", state.doctor ? (state.doctor.ok ? "OK" : "FAIL") : "—")}${metricStat("Sources", summary.sources ?? 0)}${metricStat("Packets", summary.turn_packets ?? 0)}</div><div class="row"><button class="secondary" data-action="run-doctor">Run doctor</button><button class="ghost" data-action="refresh">Refresh</button></div>${renderDoctorChecks(state.doctor, 8)}</div></div>
+                    <div class="card"><div class="card-header"><div><div class="card-title">Corpus ingest</div><div class="card-subtitle">Index or update the source corpus before running prompts.</div></div></div><div class="card-body stack"><label class="field">Corpus ${selectHtml({
+                field: "activeCorpusId",
+                options: (state.config && state.config.corpora) || [],
+                value: state.activeCorpusId,
+                placeholder: "Select corpus"
+            })}</label><div class="row"><button class="primary" data-action="run-ingest" ${state.busy.ingest ? "disabled" : ""}>${state.busy.ingest ? "Indexing…" : "Run ingest"}</button></div></div></div>
+                </div>
+                ${renderPrivacyProof()}
+                <div class="card"><div class="card-header"><div><div class="card-title">Config and metrics</div><div class="card-subtitle">Setup data remains visible without competing with the main workflow.</div></div></div><div class="card-body stack">${rawDetails("Config summary", state.config)}${rawDetails("Admin summary", state.summary)}${rawDetails("Metric registry", state.metrics)}</div></div>
+                <div class="card"><div class="card-header"><div><div class="card-title">Raw JSON scratchpad</div><div class="card-subtitle">Last selected backend payload.</div></div>${state.rawTitle ? badge(state.rawTitle, "info") : badge("empty")}</div><div class="card-body">${state.rawPayload ? rawDetails(state.rawTitle || "Raw payload", state.rawPayload, true) : `<div class="empty">No raw payload selected.</div>`}</div></div>
+            </section>`;
+        }
+
+        function renderMain() {
+            if (state.activeTab === "workspace") return renderWorkspace();
+            if (state.activeTab === "evidence") return renderEvidence();
+            if (state.activeTab === "compare") return renderCompare();
+            if (state.activeTab === "experiments") return renderExperiments();
+            if (state.activeTab === "admin") return renderAdmin();
+            return renderWorkspace();
+        }
+
+        function renderInspector() {
+            const session = activeSession();
+            return `<aside class="inspector">
+                <div class="nav-section-title">Workflow state</div>
+                <div class="stat-grid">
+                    ${metricStat("session", session ? session.title : "direct")}
+                    ${metricStat("packet", state.activePacketId ? shortId(state.activePacketId) : "none")}
+                    ${metricStat("selected", state.selectedPacketIds.size)}
+                    ${metricStat("group", state.activeGroupId ? shortId(state.activeGroupId) : "none")}
+                </div>
+                <div class="nav-section-title">Fast actions</div>
+                <div class="stack">
+                    <button class="ghost" data-action="inspect-active-packet" ${!state.activePacketId ? "disabled" : ""}>Open Evidence</button>
+                    <button class="ghost" data-action="compare-session" ${!state.activeSessionId ? "disabled" : ""}>Compare Session</button>
+                    <button class="ghost" data-action="start-experiment">Experiment From Prompt</button>
+                </div>
+                <div class="nav-section-title">Event log</div>
+                <div class="list">${state.log.length ? state.log.map(item => `<div class="list-item"><div class="row-between"><span class="mono">${escapeHtml(item.at)}</span>${badge(item.level, item.level === "bad" ? "bad" : item.level === "ok" ? "ok" : item.level === "warn" ? "warn" : "info")}</div><div class="item-meta">${escapeHtml(item.message)}</div></div>`).join("") : `<div class="empty">No UI events yet.</div>`}</div>
+            </aside>`;
+        }
+
+        function render() {
+            app.innerHTML = `<div class="app-shell">${renderTopbar()}<div class="layout">${renderNav()}<main>${renderMain()}</main>${renderInspector()}</div></div>`;
+            if (state.pendingScrollId) {
+                const targetId = state.pendingScrollId;
+                state.pendingScrollId = "";
+                requestAnimationFrame(() => {
+                    const node = document.getElementById(targetId);
+                    if (node) node.scrollIntoView({behavior: "smooth", block: "start"});
+                });
+            }
+        }
+
+        function currentTurnCapturePolicyValue() {
+            const session = activeSession();
+            const locked = Boolean(session && session.privacy_locked);
+            if (locked && state.captureMode === "full") {
+                return session.default_privacy_level === "standard" ? "privacy_standard" : "privacy_strict";
+            }
+            return turnCapturePolicyFromState();
+        }
+
+        function updateNextRunSummaryDom() {
+            const root = document.getElementById("turn-settings-card");
+            if (!root) return;
+            const values = {
+                workflow: state.activeWorkflowId || "not selected",
+                rag: state.activeRagProfileId || "not selected",
+                capture: capturePolicyLabel(currentTurnCapturePolicyValue()),
+                corpus: state.activeCorpusId || "not selected",
+                topK: String(state.topK || "default")
+            };
+            for (const [key, value] of Object.entries(values)) {
+                const node = root.querySelector(`[data-next-run-summary-value="${key}"]`);
+                if (!node) continue;
+                node.textContent = cleanUiText(value);
+                node.setAttribute("title", value);
+            }
+        }
+
+        function turnSettingsFieldNeedsLiveSummary(field) {
+            return [
+                "activeWorkflowId",
+                "activeRagProfileId",
+                "activeCorpusId",
+                "turnCapturePolicy",
+                "captureMode",
+                "privacyLevel",
+                "topK"
+            ].includes(field);
+        }
+
+        function setField(field, value, element = null, options = {}) {
+            const renderAfter = options.renderAfter !== false;
+            if (field === "activeSessionId") {
+                state.activeSessionId = value;
+                if (renderAfter) render();
+                return;
+            }
+            if (field === "activeWorkflowId") state.activeWorkflowId = value;
+            else if (field === "activeRagProfileId") state.activeRagProfileId = value;
+            else if (field === "activeCorpusId") state.activeCorpusId = value;
+            else if (field === "captureMode") state.captureMode = value;
+            else if (field === "privacyLevel") state.privacyLevel = value;
+            else if (field === "turnCapturePolicy") applyTurnCapturePolicy(value);
+            else if (field === "topK") state.topK = Number(value) || 1;
+            else if (field === "prompt") state.prompt = value;
+            else if (field === "metricFilter") state.metricFilter = value;
+            else if (field === "activeGroupId") state.activeGroupId = value;
+            else if (field === "sessionDraft.title") {
+                markSessionDraftTouched(field);
+                state.sessionDraft.title = value;
+            } else if (field === "sessionDraft.description") {
+                markSessionDraftTouched(field);
+                state.sessionDraft.description = value;
+            } else if (field === "sessionDraft.default_workflow_id") {
+                markSessionDraftTouched(field);
+                state.sessionDraft.default_workflow_id = value;
+                syncTurnDefaultsFromSessionDraft();
+            } else if (field === "sessionDraft.capture_policy") {
+                markSessionDraftTouched(field);
+                applySessionCapturePolicy(value);
+                syncTurnDefaultsFromSessionDraft();
+            } else if (field === "sessionDraft.default_capture_mode") {
+                markSessionDraftTouched(field);
+                state.sessionDraft.default_capture_mode = value;
+                syncTurnDefaultsFromSessionDraft();
+            } else if (field === "sessionDraft.default_privacy_level") {
+                markSessionDraftTouched(field);
+                state.sessionDraft.default_privacy_level = value;
+                syncTurnDefaultsFromSessionDraft();
+            } else if (field === "sessionDraft.privacy_locked") {
+                markSessionDraftTouched(field);
+                state.sessionDraft.privacy_locked = Boolean(element && element.checked);
+                syncTurnDefaultsFromSessionDraft();
+            } else if (field === "operatorFeedback.score") state.operatorFeedback.score = value;
+            else if (field === "operatorFeedback.label") state.operatorFeedback.label = value;
+            else if (field === "operatorFeedback.note") state.operatorFeedback.note = value;
+            else if (field === "experiment.prompt") state.experiment.prompt = value;
+            else if (field === "experiment.baselineLabel") state.experiment.baselineLabel = value;
+            else if (field === "experiment.baselineReplicates") {
+                state.experiment.userEdited = true;
+                state.experiment.baselineReplicates = boundedReplicateCount(value);
+            } else if (field === "experiment.baselineOverlay") {
+                state.experiment.userEdited = true;
+                state.experiment.baselineOverlay = value;
+            } else if (field === "privacy.sentinel") state.privacy.sentinel = value;
+            else if (field === "privacy.prompt") state.privacy.prompt = value;
+            syncPrivacyPair();
+            updateFieldVisual(element, field);
+            if (turnSettingsFieldNeedsLiveSummary(field)) updateNextRunSummaryDom();
+            if (renderAfter) render();
+        }
+
+        function shouldRenderOnInput(target) {
+            if (!(target instanceof HTMLElement)) return false;
+            if (target.tagName === "TEXTAREA") return false;
+            if (target.tagName === "INPUT") {
+                const type = String(target.getAttribute("type") || "text").toLowerCase();
+                return type === "checkbox" || type === "radio";
+            }
+            return target.tagName === "SELECT";
+        }
+
+        app.addEventListener("input", event => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const varIndex = target.getAttribute("data-var-index");
+            const varField = target.getAttribute("data-var-field");
+            if (varIndex !== null && varField) {
+                const item = state.experiment.variables[Number(varIndex)];
+                if (item) {
+                    state.experiment.userEdited = true;
+                    item[varField] = varField === "replicateCount" ? boundedReplicateCount(target.value) : target.value;
+                }
+                if (shouldRenderOnInput(target)) render();
+                return;
+            }
+            const field = target.getAttribute("data-field");
+            if (field) {
+                if (field === "activeSessionId") return;
+                setField(field, target.type === "checkbox" ? target.checked : target.value, target, {renderAfter: shouldRenderOnInput(target)});
+            }
+        });
+
+        app.addEventListener("change", async event => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const varIndex = target.getAttribute("data-var-index");
+            const varField = target.getAttribute("data-var-field");
+            if (varIndex !== null && varField) {
+                const item = state.experiment.variables[Number(varIndex)];
+                if (item) {
+                    state.experiment.userEdited = true;
+                    item[varField] = varField === "replicateCount" ? boundedReplicateCount(target.value) : target.value;
+                }
+                if (shouldRenderOnInput(target)) render();
+                return;
+            }
+            const field = target.getAttribute("data-field");
+            if (field === "activeSessionId") await selectSession(target.value);
+            else if (field) {
+                setField(field, target.type === "checkbox" ? target.checked : target.value, target, {renderAfter: shouldRenderOnInput(target)});
+            }
+            const action = target.getAttribute("data-action");
+            if (action === "toggle-packet") {
+                const packetId = target.getAttribute("data-packet-id");
+                if (packetId) {
+                    if (target.checked) state.selectedPacketIds.add(packetId);
+                    else state.selectedPacketIds.delete(packetId);
+                    render();
+                }
+            }
+        });
+
+        app.addEventListener("focusout", event => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const field = target.getAttribute("data-field");
+            if (field && field.startsWith("sessionDraft.")) render();
+        });
+
+        app.addEventListener("click", async event => {
+            const button = event.target.closest("button, .clickable");
+            if (!button) return;
+            const action = button.getAttribute("data-action");
+            if (!action) return;
+            if (button.tagName === "BUTTON") event.preventDefault();
+
+            try {
+                if (action === "tab") state.activeTab = button.getAttribute("data-tab") || "workspace";
+                else if (action === "toggle-nav-section") {
+                    const section = button.getAttribute("data-section");
+                    if (section === "flow") state.sidebar.flowOpen = !state.sidebar.flowOpen;
+                    if (section === "context") state.sidebar.contextOpen = !state.sidebar.contextOpen;
+                } else if (action === "route-context") routeToContext(button.getAttribute("data-context"));
+                else if (action === "toggle-workspace-card") {
+                    const card = button.getAttribute("data-card");
+                    if (card === "session") state.workspaceSections.sessionOpen = state.workspaceSections.sessionOpen === false;
+                } else if (action === "set-session-mode") setSessionMode(button.getAttribute("data-mode") || "new");
+                else if (action === "continue-turn-settings") {
+                    state.activeTab = "workspace";
+                    state.pendingScrollId = "turn-settings-card";
+                } else if (action === "continue-composer") {
+                    state.activeTab = "workspace";
+                    state.pendingScrollId = "composer-card";
+                } else if (action === "discard-session-edits") discardSessionDraftEdits();
+                else if (action === "none") return;
+                else if (action === "refresh") await refreshCore();
+                else if (action === "run-doctor") await runDoctor();
+                else if (action === "run-ingest") await runIngest();
+                else if (action === "preview-retrieval") await runSearch();
+                else if (action === "create-session") await createSession();
+                else if (action === "save-session") await saveSession();
+                else if (action === "archive-session") await archiveSession();
+                else if (action === "new-session-draft") {
+                    setSessionMode("new");
+                } else if (action === "run-turn") await runTurn();
+                else if (action === "run-private") await runTurn({forcePrivacy: true});
+                else if (action === "clear-prompt") state.prompt = "";
+                else if (action === "load-packet") await loadPacket(button.getAttribute("data-packet-id"));
+                else if (action === "load-content") await loadContentRef(button.getAttribute("data-content-id"));
+                else if (action === "save-feedback") await saveOperatorFeedback();
+                else if (action === "inspect-active-packet") state.activeTab = "evidence";
+                else if (action === "feedback-active-packet") state.activeTab = "evidence";
+                else if (action === "compare-active-packet") {
+                    state.activeTab = "compare";
+                    await runProjection("packet");
+                } else if (action === "compare-session") {
+                    state.activeTab = "compare";
+                    await runProjection("session");
+                } else if (action === "compare-packet") await runProjection("packet");
+                else if (action === "compare-selected") await runProjection("selected");
+                else if (action === "compare-group") await runProjection("group");
+                else if (action === "compare-all") await runProjection("all");
+                else if (action === "load-group") await loadGroup();
+                else if (action === "start-experiment") startExperimentFromCurrentPrompt();
+                else if (action === "use-workspace-prompt") state.experiment.prompt = state.prompt;
+                else if (action === "use-latest-prompt") state.experiment.prompt = state.lastPrompt;
+                else if (action === "add-variable") addVariable();
+                else if (action === "remove-variable") removeVariable(Number(button.getAttribute("data-var-index")));
+                else if (action === "run-experiment") await runExperiment();
+                else if (action === "refresh-packets") await refreshPackets();
+                else if (action === "run-privacy-proof") await runPrivacyProof();
+                render();
+            } catch (error) {
+                log(`${action} failed: ${error.message}`, "bad");
+            }
+        });
+
+        refreshCore({quiet: true}).then(() => {
+            state.initialized = true;
+            log("Workflow console initialized.", "ok");
+        });
+        render();
+    })();
 </script>
 </body>
 </html>

@@ -1,0 +1,25 @@
+{
+  "id": "chatcmpl-local",
+  "object": "chat.completion",
+  "created": 1770000000,
+  "model": "local-qwen36-35b-q4-llamacpp",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Local model ready."
+      },
+      "finish_reason": "length"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1822,
+    "completion_tokens": 384,
+    "total_tokens": 2206
+  },
+  "timings": {
+    "prompt_per_second": 140.9691629955947,
+    "predicted_per_second": 81.99863122076529
+  }
+}

@@ -1,0 +1,12 @@
+[Unit]
+Description=Wantless Recovery scheduled backup timer
+Documentation=file:/home/wantless/PycharmProjects/automation/recovery/configs/08_systemd.yaml
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=45min
+Persistent=true
+Unit=wantless-recovery-backup.service
+
+[Install]
+WantedBy=timers.target

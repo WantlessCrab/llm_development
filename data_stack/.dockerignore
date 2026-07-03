@@ -1,0 +1,48 @@
+# data_stack/.dockerignore
+
+# Local secrets / environment files
+.env
+*.env
+
+# Keep the safe template available in context if needed
+!.env.example
+
+# Python/cache noise
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Editor / IDE noise
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+
+# Runtime/generated operator outputs
+*.log
+logs/
+tmp/
+temp/
+.temp/
+
+# Local data/export/import/backup material
+backups/
+exports/
+imports/
+
+# Database backup/export artifacts
+*.dump
+*.dump.gz
+*.backup
+*.backup.gz
+*.sql.gz
+
+# Archive/build artifacts
+*.tar
+*.tar.gz
+*.tgz
+*.zip

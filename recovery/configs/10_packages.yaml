@@ -1,0 +1,65 @@
+version: 1
+
+tool:
+  name: packages
+  verified_apt_version: "2.8.3"
+  verified_dpkg_version: "1.22.6ubuntu6.6"
+  layer: "10_native_os_package_driver_reinstall"
+
+project:
+  root: "/home/wantless/PycharmProjects/automation/recovery"
+  output_root: "state/dry_runs/10_packages"
+  generated_root: "state/generated/10_packages"
+
+commands:
+  apt: "/usr/local/bin/apt"
+  apt_fallback: "/usr/bin/apt"
+  apt_get: "/usr/bin/apt-get"
+  apt_config: "/usr/bin/apt-config"
+  apt_cache: "/usr/bin/apt-cache"
+  apt_mark: "/usr/bin/apt-mark"
+  dpkg: "/usr/bin/dpkg"
+  dpkg_query: "/usr/bin/dpkg-query"
+  dpkg_deb: "/usr/bin/dpkg-deb"
+  dpkg_divert: "/usr/bin/dpkg-divert"
+  dpkg_statoverride: "/usr/bin/dpkg-statoverride"
+  uname: "/usr/bin/uname"
+  hostnamectl: "/usr/bin/hostnamectl"
+  lsb_release: "/usr/bin/lsb_release"
+  sha256sum: "/usr/bin/sha256sum"
+  gpg: "/usr/bin/gpg"
+
+policy:
+  copy_config_snapshot_into_run: true
+  report_name: "packages_report.json"
+  reinstall_script_name: "reinstall_native_packages.review.sh"
+  restore_plan_name: "native_package_restore_plan.md"
+  no_execute: true
+  generated_script_requires_token: true
+  generated_script_token: "I_UNDERSTAND_THIS_REINSTALLS_NATIVE_PACKAGES"
+  generated_script_mode: "0600"
+  include_apt_lists: false
+  include_sources_file_contents: true
+  include_keyring_file_hashes: true
+  include_keyring_file_copies: true
+  include_apt_auth_file_copies: false
+  keyring_copy_mode: "0644"
+  max_file_copy_bytes: 52428800
+  capture_apt_update_simulation: false
+  package_install_chunk_size: 80
+
+paths:
+  os_release: "/etc/os-release"
+  apt_sources: "/etc/apt/sources.list;/etc/apt/sources.list.d"
+  apt_keyrings: "/etc/apt/trusted.gpg;/etc/apt/trusted.gpg.d;/etc/apt/keyrings;/usr/share/keyrings"
+  apt_preferences: "/etc/apt/preferences;/etc/apt/preferences.d"
+  apt_conf: "/etc/apt/apt.conf;/etc/apt/apt.conf.d"
+  apt_auth: "/etc/apt/auth.conf;/etc/apt/auth.conf.d"
+  package_state_files: "/var/lib/dpkg/status;/var/lib/dpkg/available;/var/lib/apt/extended_states"
+  local_deb_dirs: "/var/cache/apt/archives;/var/cache/apt/archives/partial;state/local_debs"
+
+critical:
+  required_packages: "apt;dpkg;systemd;coreutils;ca-certificates;cryptsetup;smartmontools;rsync;flatpak;pipx;dconf-cli"
+  optional_packages: "docker-ce;docker-ce-cli;containerd.io;docker-compose-plugin;libvirt-daemon-system;libvirt-clients;qemu-kvm;qemu-utils;virt-manager;ovmf;swtpm;swtpm-tools;ubuntu-drivers-common;dkms;linux-firmware;firmware-sof-signed;mesa-vulkan-drivers;mesa-utils;vulkan-tools;pipewire;wireplumber;alsa-utils;network-manager;gnome-disk-utility;gsmartcontrol;dconf-editor;b3sum;python3;python3-venv;python3-pip;efibootmgr;mokutil;grub-efi-amd64;shim-signed;initramfs-tools"
+  installed_package_regex: "(?i)^(linux-|linux$|linux-image|linux-headers|linux-modules|linux-firmware|firmware|amd|amdgpu|mesa|vulkan|xserver|xorg|wayland|pipewire|wireplumber|alsa|pulseaudio|bluez|network-manager|dkms|docker|containerd|libvirt|qemu|virt|ovmf|swtpm|cryptsetup|lvm2|mdadm|smartmontools|flatpak|pipx|systemd|grub|shim|mokutil|efibootmgr|initramfs|ubuntu-drivers)"
+  policy_packages_extra: "linux-generic;linux-image-generic;ubuntu-drivers-common;build-essential;dkms;linux-firmware;mesa-vulkan-drivers;mesa-utils;vulkan-tools;docker-ce;libvirt-daemon-system;qemu-kvm;cryptsetup;smartmontools;flatpak;pipx;dconf-cli;dconf-editor;b3sum;gnome-disk-utility;gsmartcontrol"

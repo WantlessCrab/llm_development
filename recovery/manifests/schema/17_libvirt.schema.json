@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "17_libvirt.schema.json",
+  "title": "Recovery libvirt/QEMU future VM host-side report",
+  "type": "object",
+  "required": [
+    "schema",
+    "tool",
+    "command",
+    "generated_at",
+    "host",
+    "project_root",
+    "run_dir",
+    "ok",
+    "failures",
+    "warnings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "const": "recovery.libvirt.v1"
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "script",
+        "virsh_path",
+        "qemu_img_path"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "const": "libvirt"
+        },
+        "script": {
+          "type": "string"
+        },
+        "virsh_path": {
+          "type": "string"
+        },
+        "qemu_img_path": {
+          "type": "string"
+        },
+        "libvirt_uri": {
+          "type": "string"
+        },
+        "virsh_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "qemu_img_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "virt_manager_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "swtpm_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "virt_viewer_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "virt_install_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "swtpm_setup_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "discover-system",
+        "capture-inventory",
+        "capture-domain-xml",
+        "capture-network-xml",
+        "capture-pool-xml",
+        "capture-secret-refs",
+        "capture-qemu-img-info",
+        "run-qemu-img-check",
+        "capture-nvram",
+        "capture-swtpm",
+        "verify-no-live-disk-copy",
+        "generate-restore-plan",
+        "define-domain-plan",
+        "vm-smoke-plan",
+        "gate"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "capture",
+        "plan",
+        "verify",
+        "summary",
+        null
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_result"
+      }
+    },
+    "libvirt": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "domains": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "networks": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "pools": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "qemu_img": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "nvram": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "swtpm": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "restore_plan": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "command_result": {
+      "type": "object",
+      "required": [
+        "argv",
+        "returncode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "returncode": {
+          "type": "integer"
+        },
+        "stdout_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
