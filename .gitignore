@@ -78,3 +78,6 @@ recovery/archive/
 recovery/tmp/
 recovery/temp/
 wvmr/state/
+
+# Local direnv configuration
+.envrc
